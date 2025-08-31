@@ -1,0 +1,1 @@
+export const formatPhone = (num) => num.replace(/\D/g, "").slice(-10);
