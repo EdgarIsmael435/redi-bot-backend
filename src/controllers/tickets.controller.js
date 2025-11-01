@@ -1,6 +1,6 @@
 import pool from "../config/db.js";
 
-// GET /api/tickets
+// Historico
 export const getTickets = async (req, res) => {
   try {
     const [rows] = await pool.query(`
@@ -11,24 +11,9 @@ export const getTickets = async (req, res) => {
       LEFT JOIN tbl_Operadores o ON t.id_operador = o.id_operador
       ORDER BY t.fechaRegistro DESC
     `);
-    res.json(rows);
+    res.json({ success: true, data: rows });
   } catch (err) {
-    res.status(500).json({ error: "Error al obtener tickets" });
-  }
-};
-
-// POST /api/tickets
-export const createTicket = async (req, res) => {
-  const { numero, iccid, monto, id_compania, id_estado } = req.body;
-  try {
-    const [result] = await pool.query(
-      `INSERT INTO tbl_TicketsRecarga (numero, iccid, monto, id_compania, id_estado) 
-       VALUES (?, ?, ?, ?, ?)`,
-      [numero, iccid, monto, id_compania, id_estado]
-    );
-
-    res.json({ id: result.insertId, message: "Ticket creado" });
-  } catch (err) {
-    res.status(500).json({ error: "Error al crear ticket" });
+    console.error("❌ Error al obtener tickets:", err.message);
+    res.status(500).json({ success: false, error: "Error al obtener tickets" });
   }
 };

@@ -10,3 +10,5 @@ const pool = mysql.createPool({
 });
 
 export default pool;
+
+console.log("DB_USER:", process.env.DB_USER);

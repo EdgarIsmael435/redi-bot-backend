@@ -1,5 +1,4 @@
 import fs from "fs";
-import path from "path";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
@@ -35,20 +34,12 @@ export const extractDataWithGemini = async (imagePath) => {
   - Código de 19-20 dígitos que SIEMPRE empieza con "89" 
   - Formato típico: "8952000123456789012F" o "895200 012345 678901 2F" 
   - Puede estar dividido en bloques de 4-6 dígitos 
-  - SIEMPRE termina en F MONTO: 
-  - Busca cantidades precedidas por "$", "PESOS", "MXN" 
-  - Valores comunes: 30, 50, 100, 150, 200, 300, 500 
-  - Puede estar como "$100" o "100 PESOS" 
-  COMPAÑÍA: 
-  - Busca logos o nombres: TELCEL, AT&T, MOVISTAR, UNEFON, VIRGIN MOBILE 
-  - Puede estar en esquinas o como marca de agua RESPONDE EXACTAMENTE en este formato JSON: 
+  - SIEMPRE termina en F
   { 
   "numero": "solo 10 dígitos sin espacios ni guiones",
-   "iccid": "19-20 dígitos empezando con 89, terminando en F", 
-   "monto": "solo el número sin símbolo $", 
-   "compania": "nombre de la compañía en MAYUSCULAS", 
-   "confianza": "alta/media/baja", 
-   "detalles_encontrados": "describe qué elementos pudiste ver claramente" 
+   "iccid": "19-20 dígitos empezando con 89, terminando en F",
+   "monto": null,
+   "detalles_encontrados": "describe qué elementos pudiste ver claramente"
    } 
    IMPORTANTE: Si no encuentras algún dato con certeza, pon "No encontrado". 
    Y tu confianza la vas a basar dependiendo la cantidad de datos encontrados NO inventes datos. Responde SOLO el JSON.`;
@@ -59,6 +50,8 @@ export const extractDataWithGemini = async (imagePath) => {
     const text = response.text();
 
     const jsonMatch = text.match(/\{[\s\S]*\}/);
+    console.log(jsonMatch[0]);
+    
     if (!jsonMatch) throw new Error("Gemini no devolvió JSON válido");
 
     return JSON.parse(jsonMatch[0]);
