@@ -127,9 +127,9 @@ export const handleInteractiveMessage = async (from, message, cliente) => {
 
         await createTicket(from, cliente, session.chip, monto, session, message.id);
         await clearSession(from);
-        console.log(`✅ Ticket confirmado por botón: ${monto}`);
+        console.log(`Ticket confirmado por botón: ${monto}`);
     } catch (err) {
-        console.error("❌ Error en botón:", err.message);
+        console.error("Error en botón:", err.message);
         await clearSession(from);
         await sendWhatsAppMessage(from, "⚠️ Ocurrió un error. Intenta de nuevo.", message.id);
     }
@@ -266,7 +266,7 @@ export const handleImageMessage = async (from, message, cliente) => {
             }
         }
     } catch (err) {
-        console.error("❌ Error procesando imagen:", err.message);
+        console.error("Error procesando imagen:", err.message);
         await sendWhatsAppMessage(from, "❌ Hubo un error. Intenta de nuevo.", message.id);
         await clearSession(from);
     } finally {

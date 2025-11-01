@@ -3,10 +3,7 @@ import { verifyWebhook, receiveWebhook } from "../controllers/webhook.controller
 
 const router = Router();
 
-// Verificación inicial del webhook (GET)
 router.get("/", verifyWebhook);
-
-// Recepción de mensajes (POST)
 router.post("/", receiveWebhook);
 
 export default router;

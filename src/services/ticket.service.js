@@ -42,14 +42,6 @@ export const iniciarTimerFolio = (ticketId) => {
            WHERE id_ticketRecarga = ?`,
           [ticketId]
         );
-        /* await pool.query(
-          `UPDATE tbl_TicketsRecarga 
-           SET 
-           --folio = ?, 
-           fechaFolio = NOW(), folioAuto = 1
-           WHERE id_ticketRecarga = ?`,
-          [folioAuto, ticketId]
-        ); */
 
         // Emitir actualización al front
         const io = getIO();
@@ -69,10 +61,10 @@ export const iniciarTimerFolio = (ticketId) => {
           ticket.id_mensaje
         );
 
-        console.log(`⏱️ Folio automático generado para ticket ${ticketId}: ${folioAuto}`);
+        console.log(`Folio automático generado para ticket ${ticketId}: ${folioAuto}`);
       }
     } catch (err) {
-      console.error("❌ Error en timer de folio:", err.message);
+      console.error("Error en timer de folio:", err.message);
     }
   }, 1 * 60 * 1000); // 2 minutos
 };
@@ -81,7 +73,7 @@ export const iniciarTimerFolio = (ticketId) => {
 export const asignarFolio = async (ticketId, folio, estado, esFolioFalso, nombreOperador) => {
   console.log("Asignar folio");
   try {
-    // 1. Guardar folio en la BD
+    //Guardar folio en la BD
     const [result] = await pool.query(
       `UPDATE tbl_TicketsRecarga
        SET folio = ?, fechaFolio = NOW(), id_estado = ?
@@ -95,7 +87,7 @@ export const asignarFolio = async (ticketId, folio, estado, esFolioFalso, nombre
 
     if (!esFolioFalso) {
 
-      // 2. Recuperar datos para responder al cliente
+      //Recuperar datos para responder al cliente
       const [rows] = await pool.query(
         `SELECT c.numero_whatsapp, t.monto, 
         t.folio, c.nombre_cliente, c.nombre_distribuidor, 
@@ -110,7 +102,7 @@ export const asignarFolio = async (ticketId, folio, estado, esFolioFalso, nombre
 
       const ticket = rows[0];
 
-      // 3. Llamar API Laravel para actualizar chip
+      //Llamar API Laravel para actualizar chip
       try {
         await updateChipRecharge({
           id: ticket.id_chip_red,
@@ -120,12 +112,12 @@ export const asignarFolio = async (ticketId, folio, estado, esFolioFalso, nombre
           usuario: nombreOperador,
           observaciones: "Recarga completada desde dashboard REDi"
         });
-        console.log(`✅ Chip actualizado en Laravel para ticket ${ticketId}`);
+        console.log(`Chip actualizado en Laravel para ticket ${ticketId}`);
       } catch (apiErr) {
-        console.error("⚠️ Error actualizando chip en Laravel:", apiErr.message);
+        console.error("Error actualizando chip en Laravel:", apiErr.message);
       }
 
-      // 4. Mandar mensaje al cliente por WhatsApp
+      //Mandar mensaje al cliente por WhatsApp
 
       //Valida Primer Recarga del Día
       const [rowsFirstR] = await pool.query(
@@ -158,11 +150,11 @@ export const asignarFolio = async (ticketId, folio, estado, esFolioFalso, nombre
       await sendStickerMessage(ticket.numero_whatsapp, STICKERS.venta);
       
 
-      console.log(`📩 Folio enviado al cliente ${ticket.numero_whatsapp}: ${ticket.folio}`);
+      console.log(`Folio enviado al cliente ${ticket.numero_whatsapp}: ${ticket.folio}`);
     }
     return true;
   } catch (err) {
-    console.error("❌ Error asignando folio:", err.message);
+    console.error("Error asignando folio:", err.message);
     return false;
   }
 };
@@ -232,7 +224,7 @@ export const createTicket = async (from, cliente, chip, monto, respApi, messageI
     iniciarTimerFolio(ticketId, 2);
     return ticketId;
   } catch (dbError) {
-    console.error("❌ Error insertando ticket:", dbError);
+    console.error("Error insertando ticket:", dbError);
     await sendWhatsAppMessage(from, "❌ Error guardando el ticket. Contacta al soporte técnico.", messageId);
     throw dbError;
   }

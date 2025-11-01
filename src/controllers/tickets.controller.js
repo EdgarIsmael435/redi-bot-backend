@@ -13,7 +13,7 @@ export const getTickets = async (req, res) => {
     `);
     res.json({ success: true, data: rows });
   } catch (err) {
-    console.error("❌ Error al obtener tickets:", err.message);
+    console.error("Error al obtener tickets:", err.message);
     res.status(500).json({ success: false, error: "Error al obtener tickets" });
   }
 };

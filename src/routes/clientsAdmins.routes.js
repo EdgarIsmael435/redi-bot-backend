@@ -4,14 +4,11 @@ import { verifyAndRefreshToken } from "../middleware/auth.js";
 
 const router = express.Router();
 
-//Todas las rutas protegidas
 router.get("/", verifyAndRefreshToken, usersController.getClients);
 router.get("/:id", verifyAndRefreshToken, usersController.getClient);
 router.post("/", verifyAndRefreshToken, usersController.createNewClient);
 router.put("/:id", verifyAndRefreshToken, usersController.updateClientData);
 router.delete("/:id", verifyAndRefreshToken, usersController.removeClient);
-
-//Montos permitidos (también protegidas)
 router.get("/:id/montos", verifyAndRefreshToken, usersController.getMontos);
 router.post("/:id/montos", verifyAndRefreshToken, usersController.addMontoPermitido);
 router.delete("/montos/:id", verifyAndRefreshToken, usersController.removeMontoPermitido);

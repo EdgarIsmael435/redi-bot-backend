@@ -5,7 +5,7 @@ export const getClients = async (req, res) => {
     const clients = await getAllClients();
     res.json(clients);
   } catch (error) {
-    console.error("❌ Error al obtener clientes:", error);
+    console.error("Error al obtener clientes:", error);
     res.status(500).json({ error: "Error al obtener clientes" });
   }
 };
@@ -25,7 +25,7 @@ export const createNewClient = async (req, res) => {
     const client = await createClient(req.body);
     res.status(201).json(client);
   } catch (error) {
-    console.error("❌ Error al crear cliente:", error);
+    console.error("Error al crear cliente:", error);
     res.status(500).json({ error: "Error al crear cliente" });
   }
 };

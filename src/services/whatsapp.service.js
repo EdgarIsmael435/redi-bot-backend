@@ -38,11 +38,11 @@ export const sendQuickReplies = async (to, text, quickReplies, replyToMessageId 
       }
     );
 
-    console.log("✅ Quick replies enviados:", response.data);
+    console.log("Quick replies enviados:", response.data);
     return response.data;
 
   } catch (error) {
-    console.error("❌ Error enviando quick replies:", error.response?.data || error.message);
+    console.error("Error enviando quick replies:", error.response?.data || error.message);
     throw error;
   }
 };
@@ -74,10 +74,10 @@ export const sendWhatsAppMessage = async (to, message, replyToMessageId = null) 
       }
     );
 
-    console.log("✅ Mensaje enviado correctamente");
+    console.log("Mensaje enviado correctamente");
     return response.data;
   } catch (error) {
-    console.error("❌ Error enviando mensaje:", error.response?.data || error.message);
+    console.error("Error enviando mensaje:", error.response?.data || error.message);
     throw error;
   }
 };
@@ -127,11 +127,11 @@ export const sendStickerMessage = async (to, stickerId, replyToMessageId = null)
       }
     );
 
-    console.log(`✅ Sticker enviado correctamente a ${cleanNumber}`);
+    console.log(`Sticker enviado correctamente a ${cleanNumber}`);
     return response.data;
 
   } catch (error) {
-    console.error("❌ Error enviando sticker:", error.response?.data || error.message);
+    console.error("Error enviando sticker:", error.response?.data || error.message);
     throw error;
   }
 };

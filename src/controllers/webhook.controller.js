@@ -8,7 +8,7 @@ export const verifyWebhook = (req, res) => {
   const challenge = req.query["hub.challenge"];
 
   if (mode && token && mode === "subscribe" && token === process.env.WHATSAPP_VERIFY_TOKEN) {
-    console.log("✅ Webhook verificado correctamente");
+    console.log("Webhook verificado correctamente");
     return res.status(200).send(challenge);
   }
   return res.sendStatus(403);
@@ -27,7 +27,7 @@ export const receiveWebhook = async (req, res) => {
     if (!cliente) {
       await sendWhatsAppMessage(
         from,
-        "❌ *Acceso no autorizado*\n\nTu número no está registrado en nuestro sistema.",
+        "*Acceso no autorizado*\n\nTu número no está registrado en nuestro sistema.",
         message.id
       );
       return res.sendStatus(200);
@@ -39,7 +39,7 @@ export const receiveWebhook = async (req, res) => {
 
     res.sendStatus(200);
   } catch (err) {
-    console.error("❌ Error en webhook:", err.message);
+    console.error("Error en webhook:", err.message);
     res.sendStatus(500);
   }
 };

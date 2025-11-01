@@ -1,7 +1,5 @@
 import express from "express";
 import cors from "cors";
-/* import ticketsRoutes from "./routes/tickets.routes.js";
-import companiasRoutes from "./routes/companias.routes.js"; */
 import authRoutes from "./routes/auth.routes.js";
 import webhookRoutes from "./routes/webhook.routes.js";
 import usersRoutes from "./routes/users.routes.js";
@@ -17,8 +15,6 @@ app.use(cors({
 app.use(express.json());
 
 // Rutas API
-/* app.use("/api/tickets", ticketsRoutes);
-app.use("/api/companias", companiasRoutes); */
 app.use("/api/auth", authRoutes);
 app.use("/api/usuarios", usersRoutes);
 app.use("/api/clients", clientsRoutes);

@@ -1,11 +1,11 @@
 import axios from "axios";
 
-const CHIP_API_GET_URL = process.env.CLIENT_API_URL_GET_DATA_CHIP;         // Ej: https://api.midominio.com/api/chip
-const CHIP_API_UPDATE_URL = process.env.CLIENT_API_URL_UPDATE_CHIP; // Ej: https://api.midominio.com/api/chip/update
+const CHIP_API_GET_URL = process.env.CLIENT_API_URL_GET_DATA_CHIP;
+const CHIP_API_UPDATE_URL = process.env.CLIENT_API_URL_UPDATE_CHIP;
 const CHIP_API_TOKEN = process.env.CHIP_API_TOKEN;
 
 /**
- * Consulta chip en el backend Laravel (GET /chip?ICCID=...&DN=...)
+ * Consulta chip en el backend Laravel
  */
 export const getChipData = async (iccid, dn) => {
   try {
