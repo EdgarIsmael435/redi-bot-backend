@@ -7,7 +7,7 @@ export const login = async (req, res) => {
 
   try {
     const [rows] = await pool.query(
-      "SELECT * FROM tbl_usersRedi WHERE nombreUsuario = ? AND activo = 1",
+      "SELECT * FROM tbl_usuarios_redi WHERE nombre_usuario = ? AND activo = 1;",
       [nombreUsuario]
     );
 
@@ -16,12 +16,12 @@ export const login = async (req, res) => {
     const usuario = rows[0];
 
     // Comparar password con hash
-    const valido = await bcrypt.compare(password, usuario.contraseniaUsuario);
+    const valido = await bcrypt.compare(password, usuario.contrasenia_usuario);
     if (!valido) return res.status(401).json({ error: "Contraseña incorrecta" });
 
     // Generar token JWT
     const token = jwt.sign(
-      { id: usuario.id_usuarioRedi, rol: usuario.id_rol },
+      { id: usuario.id_usuario_redi, rol: usuario.id_rol },
       process.env.JWT_SECRET,
       { expiresIn: "2h" }
     );
@@ -29,12 +29,14 @@ export const login = async (req, res) => {
     res.json({
       token,
       usuario: {
-        id: usuario.id_usuarioRedi,
-        nombreUsuario: usuario.nombreUsuario,
+        id: usuario.id_usuario_redi,
+        nombreUsuario: usuario.nombre_usuario,
         rol: usuario.id_rol
       }
     });
   } catch (err) {
-    res.status(500).json({ error: "Error en servidor", detalle: err.message });
+    res.status(500).json({ error: "Error en servidor", detalle: err.message });    
+    console.log(err.message);
+    
   }
 };

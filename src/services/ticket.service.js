@@ -10,24 +10,27 @@ export const iniciarTimerFolio = (ticketId) => {
   setTimeout(async () => {
     try {
       const [rows] = await pool.query(
-        `SELECT             
-            tk.msg_id AS id_mensaje,
-            tk.id_ticketRecarga AS id_ticketRecarga,
-            dir.numero_whatsapp AS NumeroWhatsApp,
-            es.descripcion AS Estado,
-            tk.nombre_compania AS Compania,
-            tk.monto AS Monto,
-            tk.numero AS Numero,
-            tk.folio AS Folio,
-            tk.fechaRegistro AS FechaSolicitud,
-            dir.nombre_cliente AS Cliente,
-            dir.nombre_distribuidor AS Distribuidor,
-            pr.descripcion AS PrioridadCliente
-            FROM chatbotred.tbl_TicketsRecarga tk
-            INNER JOIN chatbotred.cat_estados es ON tk.id_estado = es.id_estado
-            INNER JOIN chatbotred.tbl_DirectorioClientes dir ON tk.id_cliente = dir.id_cliente 
-            INNER JOIN chatbotred.cat_prioridadCliente pr ON dir.id_prioridadCliente = pr.id_prioridadCliente
-            WHERE tk.id_ticketRecarga = ?`,
+        `SELECT 
+            tk.msg_id                AS id_mensaje,
+            tk.id_ticket_recarga     AS id_ticketRecarga,
+            dir.numero_whatsapp      AS NumeroWhatsApp,
+            es.descripcion           AS Estado,
+            tk.nombre_compania       AS Compania,
+            tk.monto                 AS Monto,
+            tk.numero                AS Numero,
+            tk.folio                 AS Folio,
+            tk.fecha_registro        AS FechaSolicitud,
+            dir.nombre_cliente       AS Cliente,
+            dir.nombre_distribuidor  AS Distribuidor,
+            pr.descripcion           AS PrioridadCliente
+          FROM chatBotRedi.tbl_tickets_recarga tk
+          INNER JOIN chatBotRedi.cat_estados_recarga es 
+            ON tk.id_estado = es.id_estado
+          INNER JOIN chatBotRedi.tbl_directorio_clientes dir 
+            ON tk.id_cliente = dir.id_cliente
+          INNER JOIN chatBotRedi.cat_prioridad_cliente pr 
+            ON dir.id_prioridad_cliente = pr.id_prioridad_cliente
+          WHERE tk.id_ticket_recarga = ?;`,
         [ticketId]
       );
 
@@ -36,10 +39,11 @@ export const iniciarTimerFolio = (ticketId) => {
       if (rows.length && !ticket.Folio) {
         const folioAuto = `AUTO-${ticketId}`;
         await pool.query(
-          `UPDATE tbl_TicketsRecarga 
-           SET 
-           fechaFolio = NOW(), folioAuto = 1
-           WHERE id_ticketRecarga = ?`,
+          `UPDATE chatBotRedi.tbl_tickets_recarga
+            SET 
+              fecha_folio = NOW(),
+              folio_auto = 1
+            WHERE id_ticket_recarga = ?;`,
           [ticketId]
         );
 
@@ -75,9 +79,12 @@ export const asignarFolio = async (ticketId, folio, estado, esFolioFalso, nombre
   try {
     //Guardar folio en la BD
     const [result] = await pool.query(
-      `UPDATE tbl_TicketsRecarga
-       SET folio = ?, fechaFolio = NOW(), id_estado = ?
-       WHERE id_ticketRecarga = ?`,
+      `UPDATE chatBotRedi.tbl_tickets_recarga
+        SET 
+          folio = ?, 
+          fecha_folio = NOW(), 
+          id_estado = ?
+        WHERE id_ticket_recarga = ?;`,
       [folio, estado, ticketId]
     );
 
@@ -89,12 +96,20 @@ export const asignarFolio = async (ticketId, folio, estado, esFolioFalso, nombre
 
       //Recuperar datos para responder al cliente
       const [rows] = await pool.query(
-        `SELECT c.numero_whatsapp, t.monto, 
-        t.folio, c.nombre_cliente, c.nombre_distribuidor, 
-        t.msg_id, t.id_ticketRecarga, t.id_chip_red, t.id_cliente
-       FROM tbl_TicketsRecarga t
-       JOIN tbl_DirectorioClientes c ON t.id_cliente = c.id_cliente
-       WHERE t.id_ticketRecarga = ?`,
+        `SELECT 
+          c.numero_whatsapp, 
+          t.monto, 
+          t.folio, 
+          c.nombre_cliente, 
+          c.nombre_distribuidor, 
+          t.msg_id, 
+          t.id_ticket_recarga, 
+          t.id_chip_red, 
+          t.id_cliente
+        FROM chatBotRedi.tbl_tickets_recarga t
+        JOIN chatBotRedi.tbl_directorio_clientes c 
+          ON t.id_cliente = c.id_cliente
+        WHERE t.id_ticket_recarga = ?;`,
         [ticketId]
       );
 
@@ -122,9 +137,9 @@ export const asignarFolio = async (ticketId, folio, estado, esFolioFalso, nombre
       //Valida Primer Recarga del Día
       const [rowsFirstR] = await pool.query(
         `SELECT COUNT(*) AS total
-        FROM tbl_TicketsRecarga
-        WHERE id_cliente = ? 
-        AND DATE(fechaFolio) = CURDATE()`,
+        FROM chatBotRedi.tbl_tickets_recarga
+        WHERE id_cliente = ?
+        AND DATE(fecha_folio) = CURDATE();`,
         [ticket.id_cliente]
       );
 
@@ -163,9 +178,9 @@ export const createTicket = async (from, cliente, chip, monto, respApi, messageI
   console.log("Crear ticket");
   try {
     const [result] = await pool.query(
-      `INSERT INTO tbl_TicketsRecarga 
-       (numero, iccid, monto, nombre_compania, id_estado, folio, id_chip_red, msg_id, reliability, match_by, id_cliente)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO chatBotRedi.tbl_tickets_recarga 
+      (numero, iccid, monto, nombre_compania, id_estado, folio, id_chip_red, msg_id, reliability, match_by, id_cliente)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
       [
         chip.dn,
         chip.icc,
@@ -225,7 +240,7 @@ export const createTicket = async (from, cliente, chip, monto, respApi, messageI
     return ticketId;
   } catch (dbError) {
     console.error("Error insertando ticket:", dbError);
-    await sendWhatsAppMessage(from, "❌ Error guardando el ticket. Contacta al soporte técnico.", messageId);
+    await sendWhatsAppMessage(from, "Error guardando el ticket. Contacta al soporte técnico.", messageId);
     throw dbError;
   }
 };

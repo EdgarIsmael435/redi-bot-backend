@@ -38,23 +38,24 @@ export const initSocket = (server) => {
     try {
       const [rows] = await pool.query(`
         SELECT 
-          tk.id_ticketRecarga AS id_ticketRecarga,
+          tk.id_ticket_recarga AS id_ticketRecarga,
           es.descripcion AS Estado,
           tk.nombre_compania AS Compania,
           tk.monto AS Monto,
           tk.numero AS Numero,
           tk.folio AS Folio,
-          tk.folioAuto AS FolioAuto,        
-          tk.fechaRegistro AS FechaSolicitud,
+          tk.folio_auto AS FolioAuto,
+          tk.fecha_registro AS FechaSolicitud,
           dir.nombre_cliente AS Cliente,
           dir.nombre_distribuidor AS Distribuidor,
           pr.descripcion AS PrioridadCliente
-        FROM chatbotred.tbl_TicketsRecarga tk
-        INNER JOIN chatbotred.cat_estados es ON tk.id_estado = es.id_estado
-        INNER JOIN chatbotred.tbl_DirectorioClientes dir ON tk.id_cliente = dir.id_cliente 
-        INNER JOIN chatbotred.cat_prioridadCliente pr ON dir.id_prioridadCliente = pr.id_prioridadCliente
-      `);
-
+        FROM chatBotRedi.tbl_tickets_recarga tk
+        INNER JOIN chatBotRedi.cat_estados_recarga es 
+            ON tk.id_estado = es.id_estado
+        INNER JOIN chatBotRedi.tbl_directorio_clientes dir 
+            ON tk.id_cliente = dir.id_cliente
+        INNER JOIN chatBotRedi.cat_prioridad_cliente pr 
+            ON dir.id_prioridad_cliente = pr.id_prioridad_cliente;`);
       socket.emit("recharges", rows);
     } catch (err) {
       console.error("Error cargando tickets iniciales:", err.message);
@@ -70,21 +71,24 @@ export const initSocket = (server) => {
         if (ok) {
           const [updated] = await pool.query(
             `SELECT 
-              tk.id_ticketRecarga AS id_ticketRecarga,
+              tk.id_ticket_recarga AS id_ticketRecarga,
               es.descripcion AS Estado,
               tk.nombre_compania AS Compania,
               tk.monto AS Monto,
               tk.numero AS Numero,
               tk.folio AS Folio,
-              tk.fechaRegistro AS FechaSolicitud,
+              tk.fecha_registro AS FechaSolicitud,
               dir.nombre_cliente AS Cliente,
               dir.nombre_distribuidor AS Distribuidor,
               pr.descripcion AS PrioridadCliente
-            FROM chatbotred.tbl_TicketsRecarga tk
-            INNER JOIN chatbotred.cat_estados es ON tk.id_estado = es.id_estado
-            INNER JOIN chatbotred.tbl_DirectorioClientes dir ON tk.id_cliente = dir.id_cliente 
-            INNER JOIN chatbotred.cat_prioridadCliente pr ON dir.id_prioridadCliente = pr.id_prioridadCliente
-            WHERE tk.id_ticketRecarga = ?`,
+            FROM chatBotRedi.tbl_tickets_recarga tk
+            INNER JOIN chatBotRedi.cat_estados_recarga es 
+                ON tk.id_estado = es.id_estado
+            INNER JOIN chatBotRedi.tbl_directorio_clientes dir 
+                ON tk.id_cliente = dir.id_cliente
+            INNER JOIN chatBotRedi.cat_prioridad_cliente pr 
+                ON dir.id_prioridad_cliente = pr.id_prioridad_cliente
+            WHERE tk.id_ticket_recarga = ?;`,
             [ticketId]
           );
 

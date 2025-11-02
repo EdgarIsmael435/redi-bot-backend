@@ -6,7 +6,7 @@ const redis = new Redis({
   password: process.env.REDIS_PASSWORD || undefined
 });
 
-redis.on("connect", () => console.log("✅ Conectado a Redis"));
-redis.on("error", (err) => console.error("❌ Error en Redis:", err));
+redis.on("connect", () => console.log("Conectado a Redis"));
+redis.on("error", (err) => console.error("Error en Redis:", err));
 
 export default redis;

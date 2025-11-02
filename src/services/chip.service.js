@@ -13,7 +13,7 @@ export const getChipData = async (iccid, dn) => {
     const { data } = await axios.get(url, { timeout: 10000, validateStatus: () => true });
     return data;
   } catch (error) {
-    console.error("❌ Error consultando chip:", error.response?.data || error.message);
+    console.error("Error consultando chip:", error.response?.data || error.message);
     throw error;
   }
 };
@@ -32,7 +32,7 @@ export const updateChipRecharge = async (chipData) => {
     });
     return data;
   } catch (error) {
-    console.error("❌ Error actualizando chip:", error.response?.data || error.message);
+    console.error("Error actualizando chip:", error.response?.data || error.message);
     throw error;
   }
 };

@@ -3,12 +3,15 @@ import pool from "../config/db.js";
 // Obtener datos del cliente
 export const getClientData = async (phoneNumber) => {
   const [rows] = await pool.query(`
-    SELECT dc.*, GROUP_CONCAT(mp.monto ORDER BY mp.monto ASC) as montos_permitidos
-    FROM tbl_DirectorioClientes dc
-    LEFT JOIN tbl_MontosPermitidos mp ON dc.id_cliente = mp.id_cliente
-    WHERE dc.numero_whatsapp = ? AND dc.activo = 1
-    GROUP BY dc.id_cliente
-  `, [phoneNumber]);
+    SELECT 
+      dc.*, 
+    GROUP_CONCAT(mp.monto ORDER BY mp.monto ASC) AS montos_permitidos
+      FROM chatBotRedi.tbl_directorio_clientes dc
+      LEFT JOIN chatBotRedi.tbl_montos_permitidos mp 
+        ON dc.id_cliente = mp.id_cliente
+      WHERE dc.numero_whatsapp = ? 
+        AND dc.activo = 1
+      GROUP BY dc.id_cliente;`, [phoneNumber]);
 
   if (rows.length > 0) {
     const cliente = rows[0];
