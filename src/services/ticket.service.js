@@ -83,8 +83,8 @@ export const asignarFolio = async (ticketId, folio, estado, id_usuario_redi, esF
         SET 
           folio = ?, 
           fecha_folio = NOW(), 
-          id_estado = ?
-          id_usuario_redi = ?,
+          id_estado = ?,
+          id_usuario_redi = ?
         WHERE id_ticket_recarga = ?;`,
       [folio, estado, id_usuario_redi, ticketId]
     );
