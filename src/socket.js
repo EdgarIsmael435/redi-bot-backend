@@ -63,10 +63,10 @@ export const initSocket = (server) => {
 
     socket.on("process-recharge", async (data) => {
       try {
-        const { ticketId, folio, esFolioFalso, nombreOperador } = data;
+        const { ticketId, folio, id_usuario_redi, esFolioFalso, nombreOperador } = data;
         console.log(`Operador ${socket.user?.id} procesó:`, data);
 
-        const ok = await asignarFolio(ticketId, folio, 2, esFolioFalso, nombreOperador);
+        const ok = await asignarFolio(ticketId, folio, 2, id_usuario_redi, esFolioFalso, nombreOperador);
 
         if (ok) {
           const [updated] = await pool.query(

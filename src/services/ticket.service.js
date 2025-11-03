@@ -74,7 +74,7 @@ export const iniciarTimerFolio = (ticketId) => {
 };
 
 // Asignamos Folio Operador
-export const asignarFolio = async (ticketId, folio, estado, esFolioFalso, nombreOperador) => {
+export const asignarFolio = async (ticketId, folio, estado, id_usuario_redi, esFolioFalso, nombreOperador) => {
   console.log("Asignar folio");
   try {
     //Guardar folio en la BD
@@ -84,8 +84,9 @@ export const asignarFolio = async (ticketId, folio, estado, esFolioFalso, nombre
           folio = ?, 
           fecha_folio = NOW(), 
           id_estado = ?
+          id_usuario_redi = ?,
         WHERE id_ticket_recarga = ?;`,
-      [folio, estado, ticketId]
+      [folio, estado, id_usuario_redi, ticketId]
     );
 
     if (result.affectedRows === 0) {
