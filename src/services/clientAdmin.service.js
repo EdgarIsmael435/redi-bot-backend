@@ -25,12 +25,12 @@ export const getClientById = async (id) => {
 };
 
 export const createClient = async (data) => {
-  const { numero_whatsapp, nombre_cliente, nombre_distribuidor, id_prioridad_cliente, montos } = data;
+  const { numero_whatsapp, nombre_cliente, nombre_distribuidor, nombre_grupo_wp, id_prioridad_cliente, montos } = data;
   const [result] = await db.query(
     `INSERT INTO chatBotRedi.tbl_directorio_clientes 
-    (numero_whatsapp, nombre_cliente, nombre_distribuidor, id_prioridad_cliente)
-    VALUES (?, ?, ?, ?);`,
-    [numero_whatsapp, nombre_cliente, nombre_distribuidor, id_prioridad_cliente]
+    (numero_whatsapp, nombre_cliente, nombre_distribuidor, nombre_grupo_wp, id_prioridad_cliente)
+    VALUES (?, ?, ?, ?, ?);`,
+    [numero_whatsapp, nombre_cliente.trim(), nombre_distribuidor.trim(), nombre_grupo_wp.trim(), id_prioridad_cliente]
   );
 
   const id_cliente = result.insertId;
@@ -44,16 +44,17 @@ export const createClient = async (data) => {
 };
 
 export const updateClient = async (id, data) => {
-  const { numero_whatsapp, nombre_cliente, nombre_distribuidor, id_prioridad_cliente, activo, montos } = data;
+  const { numero_whatsapp, nombre_cliente, nombre_distribuidor, nombre_grupo_wp, id_prioridad_cliente, activo, montos } = data;
 
   const [res] = await db.query(
     `UPDATE chatBotRedi.tbl_directorio_clientes SET 
       numero_whatsapp =?,
       nombre_cliente = ?, 
-      nombre_distribuidor = ?, 
+      nombre_distribuidor = ?,
+      nombre_grupo_wp = ?,
       id_prioridad_cliente = ?, 
       activo = ? WHERE id_cliente = ?;`,
-    [numero_whatsapp, nombre_cliente, nombre_distribuidor, id_prioridad_cliente, activo, id]
+    [numero_whatsapp, nombre_cliente.trim(), nombre_distribuidor.trim(), nombre_grupo_wp.trim(), id_prioridad_cliente, activo, id]
   );
 
   if (montos) {

@@ -43,7 +43,7 @@ export const create = async (data) => {
     `INSERT INTO chatBotRedi.tbl_usuarios_redi 
       (nombre_usuario, nombre, apellido, contrasenia_usuario, id_rol, activo)
     VALUES (?, ?, ?, ?, ?, ?);`,
-    [nombre_usuario, nombre, apellido, hashedPassword, id_rol, activo]
+    [nombre_usuario.trim(), nombre.trim(), apellido.trim(), hashedPassword, id_rol, activo]
   );
 
   return {
@@ -70,7 +70,7 @@ export const update = async (id, data) => {
         apellido = ?, 
         id_rol = ?, 
         activo = ?`;
-  const params = [nombre_usuario, nombre, apellido, id_rol, activo];
+  const params = [nombre_usuario.trim(), nombre.trim(), apellido.trim(), id_rol, activo];
 
   // Si se envió nueva contraseña, encriptarla
   if (contrasenia_usuario) {
