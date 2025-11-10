@@ -3,7 +3,7 @@ import { isAmountAllowed } from "./client.service.js";
 import { createTicket } from "./ticket.service.js";
 import { sendWhatsAppMessage, sendQuickReplies, downloadMediaFile, sendStickerMessage } from "./whatsapp.service.js";
 import { extractDataWithGemini } from "./gemini.service.js";
-import {getChipData} from "./chip.service.js";
+import { getChipData, releaseChip } from "./chip.service.js";
 import redis from "../config/redis.js";
 import fs from "fs";
 import path from "path";
@@ -55,7 +55,7 @@ export const handleTextMessage = async (from, message, cliente) => {
             if (!monto) {
                 if (cliente.montos_array?.length > 0) {
                     const quickReplies = generateQuickReplies(cliente.montos_array);
-                    await sendQuickReplies(from, "⚠️ Selecciona un monto válido:", quickReplies, message.id);
+                    await sendQuickReplies(from, "¡Ups! 🥲\nEl monto elegido no es valido, puedes seleccionar uno de los siguientes montos:", quickReplies, message.id);
                 } else {
                     await sendWhatsAppMessage(from, "⚠️ Escribe un monto válido (ejemplo: 50, 100, 200):", message.id);
                 }
@@ -64,8 +64,8 @@ export const handleTextMessage = async (from, message, cliente) => {
 
             if (!isAmountAllowed(cliente, monto)) {
                 if (cliente.montos_array?.length > 0) {
-                    const montosTexto = cliente.montos_array.join(", $");
-                    await sendWhatsAppMessage(from, `⚠️ Monto no permitido.\n💰 Opciones: $${montosTexto}`, message.id);
+                    const montosTexto = cliente.montos_array.join("*, *$");
+                    await sendWhatsAppMessage(from, `¡Ups! 🥲\nEl monto elegido no esta permitido.\nPuedes elegir una de las siguientes opciones: $*${montosTexto}*`, message.id);
                 } else {
                     await sendWhatsAppMessage(from, `⚠️ Monto no válido. Escribe entre $20 y $1000:`, message.id);
                 }
@@ -77,16 +77,16 @@ export const handleTextMessage = async (from, message, cliente) => {
             return;
         }
     }
-    
-    await sendStickerMessage(from, STICKERS.bienvenida);
 
     await sendWhatsAppMessage(
         from,
-        `¡Hola ${cliente.nombre_cliente} 👋\n`+
-        `Es un placer atender 🏪 ${cliente.nombre_distribuidor}! \n\n` +
+        `¡Hola, ${cliente.nombre_cliente}! 👋\n` +
+        `Es un placer atender ${cliente.nombre_distribuidor}\n\n` +
         `📸 Envía la foto de tu SIM para procesar la recarga.`,
         message.id
     );
+
+    await sendStickerMessage(from, STICKERS.bienvenida);
 };
 
 // =========================================================
@@ -141,31 +141,46 @@ export const handleInteractiveMessage = async (from, message, cliente) => {
 export const handleImageMessage = async (from, message, cliente) => {
     const mediaId = message.image.id;
     const filePath = path.join("uploads", `sim_${Date.now()}.jpg`);
-
+    let extracted = null;
     try {
         const activeSession = await redis.get(`session:${from}`);
         if (activeSession) {
-            await sendWhatsAppMessage(from, "Estamos validando tu primera solicitud 🤖\nEn un momento podras solicitar un nuevo sim.", message.id);            
+            await sendWhatsAppMessage(from, "Estamos validando tu primera solicitud 🤖\nEn un momento podras solicitar un nuevo sim.", message.id);
             return;
         }
 
         await redis.set(`session:${from}`, JSON.stringify({ estado: "procesando_imagen" }), "EX", 300);
 
-        await sendWhatsAppMessage(from, `⏳ Procesando tu imagen, ${cliente.nombre_cliente}...`, message.id);
-        sendStickerMessage(from, STICKERS.proceso)
-        
-        await downloadMediaFile(mediaId, filePath);
-        const extracted = await extractDataWithGemini(filePath);
+        await sendWhatsAppMessage(from, `Gracias, ${cliente.nombre_cliente} 😁\nHe recibido tu solicitud, voy a procesar tu imagen, dame un momento...`, message.id);
 
-        if (extracted.confianza === "baja") {
-            await sendWhatsAppMessage(from, "❌ Imagen no clara. Envía otra foto del SIM.", message.id);
+        await downloadMediaFile(mediaId, filePath);
+        extracted = await extractDataWithGemini(filePath);
+
+        if ((!extracted.iccid || extracted.iccid === "No encontrado") &&
+            (!extracted.numero || extracted.numero === "No encontrado")) {
+            await sendWhatsAppMessage(from, extracted.detalles_encontrados, message.id);
             await clearSession(from);
             return;
         }
 
-        if ((!extracted.iccid || extracted.iccid === "No encontrado") &&
-            (!extracted.numero || extracted.numero === "No encontrado")) {
-            await sendWhatsAppMessage(from, "❌ No se detectaron datos en la imagen.", message.id);
+        if (extracted.validaRed === false) {
+
+            const chip = {
+                id: null,
+                icc: extracted.iccid,
+                dn: extracted.numero,
+                compania: 'TELCEL',
+                entrega: '1999-02-27',
+                folio: null,
+                usuario: null,
+                fecha: null,
+                statusTkBot: null,
+                fechaConsultaTkBot: null
+            };
+
+            const montoAuto = 100;
+            await createTicket(from, cliente, chip, montoAuto, { status: "success", reliability: 100, by: "ICCID & DN" }, message.id);
+
             await clearSession(from);
             return;
         }
@@ -175,9 +190,15 @@ export const handleImageMessage = async (from, message, cliente) => {
         try {
             respApi = await getChipData(extracted.iccid || "", extracted.numero || "");
             console.log(respApi);
-            
         } catch {
-            await sendWhatsAppMessage(from, "❌ Error consultando el sistema.", message.id);
+            await sendWhatsAppMessage(from, "Al parecer tengo un error en este momento 🥲\n¿Podriamos volver a comenzar con tu solicitud?.", message.id);
+            try {
+                if (extracted?.iccid || extracted?.numero) {
+                    await releaseChip(extracted.iccid, extracted.numero);
+                }
+            } catch (apiErr) {
+                console.error("Error liberando chip tras fallo:", apiErr.message);
+            }
             await clearSession(from);
             return;
         }
@@ -187,9 +208,9 @@ export const handleImageMessage = async (from, message, cliente) => {
             if (respApi.blocked) {
                 await sendWhatsAppMessage(
                     from,
-                    `⚠️ *Chip ya cuenta con un ticket en proceso*\n\n` +
+                    `*Ya me compartiste este sim, en seguida obtendras respuesta de tu solicitud* 😅\n\n` +
                     `📅 Última consulta: ${respApi.lastConsulta}\n\n` +
-                    `❌ No se puede volver a procesar, espera el folio de recarga.`,
+                    `❌ No puedo volver a procesarlo, espera el folio de recarga.`,
                     message.id
                 );
                 await clearSession(from);
@@ -199,10 +220,13 @@ export const handleImageMessage = async (from, message, cliente) => {
             if (respApi.expired) {
                 await sendWhatsAppMessage(
                     from,
-                    `⚠️ *Chip caducado* (vigencia 30 días)\n\n` +
-                    `📅 Fecha entrega: ${respApi.date_delivery}\n` +
+                    `*Chip caducado* 🫣 \n\n` +
+                    `Recuerda que tus sims cuentan con una fecha de caducidad\n` +
+                    `Pero no te preocupes, puedes cambiar este sim con tu mayorista\n\n` +
+                    `Te comparto los detalles de la recarga:\n` +
+                    `📅 Fecha entrega: ${respApi.dateDelivery}\n` +
                     `⛔ Expiró: ${respApi.dateExpired}\n\n` +
-                    `❌ No se puede procesar la recarga.`,
+                    `❌ No puedo procesar la recarga.`,
                     message.id
                 );
                 await clearSession(from);
@@ -212,10 +236,12 @@ export const handleImageMessage = async (from, message, cliente) => {
             if (respApi.used) {
                 await sendWhatsAppMessage(
                     from,
-                    `⚠️ *Chip ya tiene recarga registrada*\n\n` +
+                    `*Chip ya tiene recarga registrada* 🫣\n\n` +
+                    `Recuerda que solo puedo hacer la primera recarga de un sim\n` +
+                    `Te comparto los detalles de la recarga que yo o alguno de mis compañeros ya proceso:\n` +
                     `📅 Fecha recarga: ${respApi.data.fechaRecarga}\n` +
                     `📄 Folio: ${respApi.data.folio}\n\n` +
-                    `❌ No se puede volver a recargar.`,
+                    `❌ No puedo volver a recargar.`,
                     message.id
                 );
                 await clearSession(from);
@@ -224,9 +250,9 @@ export const handleImageMessage = async (from, message, cliente) => {
 
             await sendWhatsAppMessage(
                 from,
-                `❌ *${respApi.message || 'Chip no encontrado'}*\n\n` +
-                `El chip no está registrado en el inventario.\n` +
-                `Verifica los datos o contacta a tu distribuidor.`,
+                `*${respApi.message || 'Chip no encontrado'}* 🧐 \n\n` +
+                `El chip no está registrado en nuestro inventario.\n` +
+                `Si crees que es mi error, intenta con una imagen mas clara y asegurate de que se muestren todos los datos.🤖`,
                 message.id
             );
             await clearSession(from);
@@ -236,8 +262,8 @@ export const handleImageMessage = async (from, message, cliente) => {
 
         // Chip válido
         const chip = respApi.data;
-        console.log(chip);
-        
+        console.log("CHIP:" + chip);
+
         const caption = message.image?.caption || "";
         const montoFromCaption = extractAmountFromText(caption);
 
@@ -260,14 +286,21 @@ export const handleImageMessage = async (from, message, cliente) => {
 
             if (cliente.montos_array?.length > 0) {
                 const quickReplies = generateQuickReplies(cliente.montos_array);
-                await sendQuickReplies(from, `✅ Chip: ${chip.dn}\n💰 Selecciona monto:`, quickReplies, message.id);
+                await sendQuickReplies(from, `✅ Número detectado: ${chip.dn}\n💰 Ahora, selecciona un monto:`, quickReplies, message.id);
             } else {
                 await sendWhatsAppMessage(from, `✅ Chip: ${chip.dn}\n💰 Escribe el monto (ej: 50, 100, 200):`, message.id);
             }
         }
     } catch (err) {
         console.error("Error procesando imagen:", err.message);
-        await sendWhatsAppMessage(from, "❌ Hubo un error. Intenta de nuevo.", message.id);
+        await sendWhatsAppMessage(from, "No pude detectar informacion concreta 😟 \nIntenta de nuevo, si el error persiste, ponte en contacto con tu mayorita y reporta el error 😥.", message.id);
+        try {
+                if (extracted?.iccid || extracted?.numero) {
+                    await releaseChip(extracted.iccid, extracted.numero);
+                }
+            } catch (apiErr) {
+                console.error("Error liberando chip tras fallo:", apiErr.message);
+            }
         await clearSession(from);
     } finally {
         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);

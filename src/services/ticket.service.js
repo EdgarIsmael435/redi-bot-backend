@@ -22,7 +22,8 @@ export const iniciarTimerFolio = (ticketId) => {
             tk.fecha_registro        AS FechaSolicitud,
             dir.nombre_cliente       AS Cliente,
             dir.nombre_distribuidor  AS Distribuidor,
-            pr.descripcion           AS PrioridadCliente
+            pr.descripcion           AS PrioridadCliente,
+            tk.id_cliente            AS id_cliente
           FROM chatBotRedi.tbl_tickets_recarga tk
           INNER JOIN chatBotRedi.cat_estados_recarga es 
             ON tk.id_estado = es.id_estado
@@ -37,7 +38,7 @@ export const iniciarTimerFolio = (ticketId) => {
       const ticket = rows[0];
 
       if (rows.length && !ticket.Folio) {
-        const folioAuto = `AUTO-${ticketId}`;
+        const folioAuto = `1104${ticketId}`;
         await pool.query(
           `UPDATE chatBotRedi.tbl_tickets_recarga
             SET 
@@ -55,13 +56,31 @@ export const iniciarTimerFolio = (ticketId) => {
           FolioAuto: 1,
         });
 
-        // Avisar al cliente
+        //Valida Primer Recarga del Día
+        const [rowsFirstR] = await pool.query(
+          `SELECT COUNT(*) AS total
+        FROM chatBotRedi.tbl_tickets_recarga
+        WHERE id_cliente = ?
+        AND DATE(fecha_folio) = CURDATE();`,
+          [ticket.id_cliente]
+        );
+
+        let messagePersonalizate = "";
+
+        const firstRechargeDay = rowsFirstR[0].total === 1;
+        if (firstRechargeDay) {
+          messagePersonalizate += "🎉 *¡Felicidades por tu primera recarga del día!* 💥\n\n";
+        }
+
         await sendWhatsAppMessage(
           ticket.NumeroWhatsApp,
-          `✅ *Recarga completada*\n\n` +
+          `✅ *¡Listo! He recargado tu sim, te comparto los detalles:*\n\n` +
+          `👤 Cliente: ${ticket.nombre_cliente}\n` +
+          `🏪 Sucursal: ${ticket.nombre_distribuidor}\n` +
           `💰 Monto: $${ticket.Monto}\n` +
           `📄 Folio: *${folioAuto}*\n\n` +
-          `⚠️ Este folio fue generado automáticamente por tiempo de espera.`,
+          messagePersonalizate +
+          `Gracias por seguir recargando con REDi 🤖🚀`,
           ticket.id_mensaje
         );
 
@@ -70,7 +89,7 @@ export const iniciarTimerFolio = (ticketId) => {
     } catch (err) {
       console.error("Error en timer de folio:", err.message);
     }
-  }, 1 * 60 * 1000); // 2 minutos
+  }, 2 * 60 * 1000); // 2 minutos
 };
 
 // Asignamos Folio Operador
@@ -93,11 +112,9 @@ export const asignarFolio = async (ticketId, folio, estado, id_usuario_redi, esF
       throw new Error(`Ticket ${ticketId} no encontrado`);
     }
 
-    if (!esFolioFalso) {
-
-      //Recuperar datos para responder al cliente
-      const [rows] = await pool.query(
-        `SELECT 
+    //Recuperar datos para responder al cliente
+    const [rows] = await pool.query(
+      `SELECT 
           c.numero_whatsapp, 
           t.monto, 
           t.folio, 
@@ -111,13 +128,14 @@ export const asignarFolio = async (ticketId, folio, estado, id_usuario_redi, esF
         JOIN chatBotRedi.tbl_directorio_clientes c 
           ON t.id_cliente = c.id_cliente
         WHERE t.id_ticket_recarga = ?;`,
-        [ticketId]
-      );
+      [ticketId]
+    );
 
-      if (!rows.length) throw new Error("Ticket no encontrado");
+    if (!rows.length) throw new Error("Ticket no encontrado");
 
-      const ticket = rows[0];
+    const ticket = rows[0];
 
+    if (ticket.id_chip_red !== null) {
       //Llamar API Laravel para actualizar chip
       try {
         await updateChipRecharge({
@@ -132,7 +150,9 @@ export const asignarFolio = async (ticketId, folio, estado, id_usuario_redi, esF
       } catch (apiErr) {
         console.error("Error actualizando chip en Laravel:", apiErr.message);
       }
+    }
 
+    if (!esFolioFalso) {
       //Mandar mensaje al cliente por WhatsApp
 
       //Valida Primer Recarga del Día
@@ -148,23 +168,23 @@ export const asignarFolio = async (ticketId, folio, estado, id_usuario_redi, esF
 
       const firstRechargeDay = rowsFirstR[0].total === 1;
       if (firstRechargeDay) {
-        messagePersonalizate += "🎉 *¡Felicidades por tu primera recarga del día!* 💥\n\n";
+        messagePersonalizate += `🎉 *¡Felicidades por tu primera recarga del día, ${ticket.nombre_cliente}!* 💥\n\n`;
       }
 
       await sendWhatsAppMessage(
         ticket.numero_whatsapp,
-        `✅ *Recarga completada*\n\n` +
+        `✅ *¡Listo! He recargado tu sim, te comparto los detalles:*\n\n` +
         `👤 Cliente: ${ticket.nombre_cliente}\n` +
-        `🏪 Distribuidor: ${ticket.nombre_distribuidor}\n` +
+        `🏪 Sucursal: ${ticket.nombre_distribuidor}\n` +
         `💰 Monto: $${ticket.monto}\n` +
         `📄 Folio: *${ticket.folio}*\n\n` +
-         messagePersonalizate +
-        `🤖 Gracias por seguir recargando con REDi 🚀`,
+        messagePersonalizate +
+        `Gracias por seguir recargando con REDi 🤖🚀`,
         ticket.msg_id
       );
 
       await sendStickerMessage(ticket.numero_whatsapp, STICKERS.venta);
-      
+
 
       console.log(`Folio enviado al cliente ${ticket.numero_whatsapp}: ${ticket.folio}`);
     }
@@ -196,17 +216,19 @@ export const createTicket = async (from, cliente, chip, monto, respApi, messageI
         cliente.id_cliente,
       ]
     );
-
-    const statusIcon = respApi.status === "success" ? "✅" : "⚠️";
+    
     const reliabilityText = respApi.reliability ? ` (${respApi.reliability}% confiabilidad)` : "";
-    const entregaFormato = new Date(chip.entrega).toLocaleDateString("es-MX", {
+    const entregaFormato = new Date(`${chip.entrega}T00:00:00`).toLocaleDateString("es-MX", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric"
     });
+
+    let msgIsValidate = chip.id !== null ? `📅 Chip entregado: ${entregaFormato}` : ``;
+
     await sendWhatsAppMessage(
       from,
-      `${statusIcon} *Ticket registrado exitosamente*\n\n` +
+      `✅ *He registrado tu ticket exitosamente, te comparto los detalles:*\n\n` +
       `👤 Cliente: ${cliente.nombre_cliente}\n` +
       `🏪 Distribuidor: ${cliente.nombre_distribuidor}\n` +
       `📱 Número: ${chip.dn}\n` +
@@ -217,9 +239,11 @@ export const createTicket = async (from, cliente, chip, monto, respApi, messageI
       `🆔 *ID Ticket:* ${result.insertId}\n` +
       `⏳ *Estado:* Pendiente de procesamiento\n` +
       `⏱️ Tiempo estimado: 1-2 minutos\n\n` +
-      `📅 Chip entregado: ${entregaFormato}`,
+      msgIsValidate,
       messageId
     );
+    
+    sendStickerMessage(from, STICKERS.proceso);
 
     const ticketId = result.insertId;
 
@@ -241,7 +265,7 @@ export const createTicket = async (from, cliente, chip, monto, respApi, messageI
     return ticketId;
   } catch (dbError) {
     console.error("Error insertando ticket:", dbError);
-    await sendWhatsAppMessage(from, "Error guardando el ticket. Contacta al soporte técnico.", messageId);
+    await sendWhatsAppMessage(from, "No pude guardar tu ticket, intenta de nuevo 😥\nSi el problema continua reportame, tal vez este sufriendo un problema 😫", messageId);
     throw dbError;
   }
 };

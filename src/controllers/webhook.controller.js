@@ -27,7 +27,7 @@ export const receiveWebhook = async (req, res) => {
     if (!cliente) {
       await sendWhatsAppMessage(
         from,
-        "*Acceso no autorizado*\n\nTu número no está registrado en nuestro sistema.",
+        "*Acceso no autorizado*\n\nTu número no está registrado en nuestro sistema. 😅\n\nPonte en contacto con tu mayorista para interactuar con REDi. 🤖",
         message.id
       );
       return res.sendStatus(200);
