@@ -141,7 +141,7 @@ export const asignarFolio = async (ticketId, folio, estado, id_usuario_redi, esF
         await updateChipRecharge({
           id: ticket.id_chip_red,
           recarga: ticket.monto,
-          fechaRecarga: new Date().toISOString(),
+          fechaRecarga: new Date().toLocaleDateString("sv-SE", { timeZone: "America/Mexico_City" }),
           folio: ticket.folio,
           usuario: nombreOperador,
           observaciones: "Recarga completada desde dashboard REDi"
@@ -217,7 +217,7 @@ export const createTicket = async (from, cliente, chip, monto, respApi, messageI
       ]
     );
 
-    const reliabilityText = respApi.reliability ? `(${respApi.reliability}% confiabilidad)` : "";
+    const reliabilityText = respApi.reliability ? `${respApi.reliability}% confiabilidad` : "";
     /* const entregaFormato = new Date(`${chip.entrega}T00:00:00`).toLocaleDateString("es-MX", {
       day: "2-digit",
       month: "2-digit",
