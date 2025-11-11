@@ -32,19 +32,20 @@ export const extractDataWithGemini = async (imagePath) => {
   - Ignora reflejos, sombras o texto borroso
   PASO 2: DETECCIÓN DE COMPAÑÍA  
   - Busca logos o palabras que identifiquen la compañía ("Telcel", "Amigo", "AT&T", "Unefon","Bait", "Virgin" "Movistar"):
-  - Si pertenece claramente a Telcel, marca "validaRed": false.  
+  - Si pertenece claramente a Telcel y el numero de telefono NO comienza con 4, marca "validaRed": false.  
   - Si pertenece a otra compañía (AT&T, Unefon, Movistar, etc.), marca "validaRed": true.  
   - Si no hay forma de saberlo con certeza, deja "validaRed": false.  
   PASO 3: EXTRACCIÓN DE DATOS Busca específicamente estos elementos: 
   NÚMERO TELEFÓNICO: 
-  - Busca números de 10 dígitos que empiecen con 55 o 56 (México) 
-  - Pueden estar separados por espacios o guiones: "55-1234-5678" o "55 1234 5678" 
+  - Busca números de 10 dígitos que empiecen con 55, 56 o 4 (México y Bajio) 
+  - Pueden estar separados por espacios o guiones: "55-1234-5678", "55 1234 5678" o "4221234459"
   - Pueden tener formato: "+52 55 1234 5678" (toma solo los 10 dígitos) 
+  - En caso de ser virgin, lo mas probable es que no venga el numero en el sim, si lo encuentras un mensaje similar a "Tu numero es: *seguido del número"
   ICCID: 
   - Código de 19-20 dígitos que SIEMPRE empieza con "89" 
   - Formato típico: "8952000123456789012F" o "895200 012345 678901 2F" 
   - Puede estar dividido en bloques de 4-6 dígitos 
-  - Normalmente termina en F 
+  - Normalmente termina en F  
   { 
   "numero": "solo 10 dígitos sin espacios ni guiones",
    "iccid": "19-20 dígitos empezando con 89, terminando en F",

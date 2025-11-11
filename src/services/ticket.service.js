@@ -1,7 +1,7 @@
 import pool from "../config/db.js";
 import { sendWhatsAppMessage, sendStickerMessage } from "./whatsapp.service.js";
 import { getIO } from "../socket.js";
-import { updateChipRecharge } from "./chip.service.js";
+import { updateChipRecharge, releaseChip } from "./chip.service.js";
 import { STICKERS } from "../constants/stickers.js";
 
 // Asignamos Folio Falso
@@ -75,8 +75,8 @@ export const iniciarTimerFolio = (ticketId) => {
         await sendWhatsAppMessage(
           ticket.NumeroWhatsApp,
           `✅ *¡Listo! He recargado tu sim, te comparto los detalles:*\n\n` +
-          `👤 Cliente: ${ticket.nombre_cliente}\n` +
-          `🏪 Sucursal: ${ticket.nombre_distribuidor}\n` +
+          `👤 Cliente: ${ticket.Cliente}\n` +
+          `🏪 Sucursal: ${ticket.Distribuidor}\n` +
           `💰 Monto: $${ticket.Monto}\n` +
           `📄 Folio: *${folioAuto}*\n\n` +
           messagePersonalizate +
@@ -89,7 +89,7 @@ export const iniciarTimerFolio = (ticketId) => {
     } catch (err) {
       console.error("Error en timer de folio:", err.message);
     }
-  }, 2 * 60 * 1000); // 2 minutos
+  }, 1 * 60 * 1000); // 2 minutos
 };
 
 // Asignamos Folio Operador
@@ -216,15 +216,16 @@ export const createTicket = async (from, cliente, chip, monto, respApi, messageI
         cliente.id_cliente,
       ]
     );
-    
-    const reliabilityText = respApi.reliability ? ` (${respApi.reliability}% confiabilidad)` : "";
-    const entregaFormato = new Date(`${chip.entrega}T00:00:00`).toLocaleDateString("es-MX", {
+
+    const reliabilityText = respApi.reliability ? `(${respApi.reliability}% confiabilidad)` : "";
+    /* const entregaFormato = new Date(`${chip.entrega}T00:00:00`).toLocaleDateString("es-MX", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric"
     });
+    */
 
-    let msgIsValidate = chip.id !== null ? `📅 Chip entregado: ${entregaFormato}` : ``;
+    let msgIsValidate = chip.id !== null ? `💰 Monto: $${monto}\n` : ``;
 
     await sendWhatsAppMessage(
       from,
@@ -234,15 +235,14 @@ export const createTicket = async (from, cliente, chip, monto, respApi, messageI
       `📱 Número: ${chip.dn}\n` +
       `🔢 ICCID: ${chip.icc}\n` +
       `📡 Compañía: ${chip.compania}\n` +
-      `💰 Monto: $${monto}\n` +
-      `🎯 Coincidencia: ${respApi.by}${reliabilityText}\n\n` +
+      msgIsValidate +
+      `🎯 ${reliabilityText}\n\n` +
       `🆔 *ID Ticket:* ${result.insertId}\n` +
       `⏳ *Estado:* Pendiente de procesamiento\n` +
-      `⏱️ Tiempo estimado: 1-2 minutos\n\n` +
-      msgIsValidate,
+      `⏱️ Tiempo estimado: 1 minutos\n\n`,
       messageId
     );
-    
+
     sendStickerMessage(from, STICKERS.proceso);
 
     const ticketId = result.insertId;
@@ -266,6 +266,13 @@ export const createTicket = async (from, cliente, chip, monto, respApi, messageI
   } catch (dbError) {
     console.error("Error insertando ticket:", dbError);
     await sendWhatsAppMessage(from, "No pude guardar tu ticket, intenta de nuevo 😥\nSi el problema continua reportame, tal vez este sufriendo un problema 😫", messageId);
+    try {
+      if (chip?.icc || chip?.dn) {
+        await releaseChip(chip.icc, chip.dn);
+      }
+    } catch (apiErr) {
+      console.error("Error liberando chip tras fallo:", apiErr.message);
+    }
     throw dbError;
   }
 };

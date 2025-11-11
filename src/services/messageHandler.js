@@ -9,7 +9,9 @@ import fs from "fs";
 import path from "path";
 import { STICKERS } from "../constants/stickers.js";
 
-//Extraer monto de texto libre
+// =========================================================
+// Extraer monto de texto libre
+// =========================================================
 const extractAmountFromText = (text) => {
     if (!text || typeof text !== "string") return null;
 
@@ -32,12 +34,25 @@ const extractAmountFromText = (text) => {
     return null;
 };
 
-//Quick replies
+// =========================================================
+// Quick replies
+// =========================================================
 const generateQuickReplies = (montosArray) =>
     montosArray.map((monto) => ({
         type: "reply",
         reply: { id: `monto_${monto}`, title: `$${monto}` },
     }));
+
+const generateConfirmationReplies = () => ([
+    {
+        type: "reply",
+        reply: { id: "confirmar_si", title: "✅ Sí, continuar" },
+    },
+    {
+        type: "reply",
+        reply: { id: "confirmar_no", title: "❌ No, cancelar" },
+    },
+]);
 
 // =========================================================
 // Handler: mensajes de TEXTO
@@ -48,14 +63,85 @@ export const handleTextMessage = async (from, message, cliente) => {
 
     if (sessionData) {
         const session = JSON.parse(sessionData);
+        if (session.estado === "confirmando_recarga") {
+            const textLower = text.toLowerCase();
+            const affirmatives = ["si", "sí", "ok", "claro", "dale", "va", "por favor", "continuar", "hazlo", "perfecto", "de acuerdo"];
+            const negatives = ["no", "n", "cancelar", "mejor no", "detener", "olvidalo", "olvídalo"];
 
+            // Confirmar
+            if (affirmatives.some(word => textLower.includes(word))) {
+                await createTicket(from, cliente, session.chip, session.monto, session.session, message.id);
+                await clearSession(from);
+                return;
+            }
+
+            // Cancelar
+            if (negatives.some(word => textLower.includes(word))) {
+                await sendWhatsAppMessage(from, "🚫 Recarga cancelada. Si deseas intentar otra, envía la imagen nuevamente.", message.id);
+                try {
+                    if (session.chip?.icc || session.chip?.dn) {
+                        await releaseChip(session.chip.icc, session.chip.dn);
+                    }
+                } catch (apiErr) {
+                    console.error("Error liberando chip tras fallo:", apiErr.message);
+                }
+                await clearSession(from);
+                return;
+            }
+
+            // Si el texto no coincide
+            await sendWhatsAppMessage(
+                from,
+                "🤔 No entendí tu respuesta.\nPor favor confirma:\n✅ *Sí* para continuar\n❌ *No* para cancelar.",
+                message.id
+            );
+            return;
+        }
+        //Cuando espera DN para chips Virgin
+        // Cuando espera DN para chips Virgin
+        if (session.estado === "esperando_dn") {
+            const dn = text.replace(/\D/g, ""); // quitar todo excepto números
+
+            if (!/^\d{10}$/.test(dn)) {
+                await sendWhatsAppMessage(
+                    from,
+                    "😥 El número no parece válido. Escribe los 10 dígitos del número del SIM.",
+                    message.id
+                );
+                return;
+            }
+
+            const chip = { ...session.chip, dn };
+
+            // Monto fijo $100 para Virgin
+            const confirmData = {
+                estado: "confirmando_recarga",
+                chip,
+                monto: 100,
+                session,
+            };
+
+            await redis.set(`session:${from}`, JSON.stringify(confirmData), "EX", 300);
+
+            const confirmText = `Por favor confirma los datos de tu recarga:\n\n` +
+                `📱 *DN:* ${dn}\n` +
+                `💳 *ICCID:* ${chip.icc}\n` +
+                `🏢 *Compañía:* ${chip.compania || 'VIRGIN'}\n` +
+                `💰 *Monto:* $100\n\n` +
+                `¿Deseas continuar con la recarga?`;
+
+            await sendQuickReplies(from, confirmText, generateConfirmationReplies(), message.id);
+            return;
+        }
+
+        // Cuando espera monto
         if (session.estado === "esperando_monto") {
             let monto = extractAmountFromText(text);
 
             if (!monto) {
                 if (cliente.montos_array?.length > 0) {
                     const quickReplies = generateQuickReplies(cliente.montos_array);
-                    await sendQuickReplies(from, "¡Ups! 🥲\nEl monto elegido no es valido, puedes seleccionar uno de los siguientes montos:", quickReplies, message.id);
+                    await sendQuickReplies(from, "¡Ups! 🥲\nEl monto elegido no es válido, puedes seleccionar uno de los siguientes montos:", quickReplies, message.id);
                 } else {
                     await sendWhatsAppMessage(from, "⚠️ Escribe un monto válido (ejemplo: 50, 100, 200):", message.id);
                 }
@@ -65,24 +151,44 @@ export const handleTextMessage = async (from, message, cliente) => {
             if (!isAmountAllowed(cliente, monto)) {
                 if (cliente.montos_array?.length > 0) {
                     const montosTexto = cliente.montos_array.join("*, *$");
-                    await sendWhatsAppMessage(from, `¡Ups! 🥲\nEl monto elegido no esta permitido.\nPuedes elegir una de las siguientes opciones: $*${montosTexto}*`, message.id);
+                    await sendWhatsAppMessage(from, `¡Ups! 🥲\nEl monto elegido no está permitido.\nPuedes elegir una de las siguientes opciones: $*${montosTexto}*`, message.id);
                 } else {
                     await sendWhatsAppMessage(from, `⚠️ Monto no válido. Escribe entre $20 y $1000:`, message.id);
                 }
                 return;
             }
 
-            await createTicket(from, cliente, session.chip, monto, session, message.id);
-            await clearSession(from);
+            // Confirmación antes de crear ticket
+            const chip = session.chip;
+
+            const confirmData = {
+                estado: "confirmando_recarga",
+                chip,
+                monto,
+                session,
+            };
+
+            await redis.set(`session:${from}`, JSON.stringify(confirmData), "EX", 300);
+
+            const confirmText = `Por favor confirma los datos de tu recarga:\n\n` +
+                `📱 *DN:* ${chip.dn}\n` +
+                `💳 *ICCID:* ${chip.icc}\n` +
+                `🏢 *Compañía:* ${chip.compania || 'Desconocida'}\n` +
+                `💰 *Monto:* $${monto}\n\n` +
+                `¿Deseas continuar con la recarga?`;
+
+            await sendQuickReplies(from, confirmText, generateConfirmationReplies(), message.id);
             return;
         }
     }
 
+    // Si no hay sesión activa
     await sendWhatsAppMessage(
         from,
         `¡Hola, ${cliente.nombre_cliente}! 👋\n` +
-        `Es un placer atender ${cliente.nombre_distribuidor}\n\n` +
-        `📸 Envía la foto de tu SIM para procesar la recarga.`,
+        `Es un placer atender a ${cliente.nombre_distribuidor}\n\n` +
+        `📸 Envía la foto de tu SIM para procesar la recarga.\n\n` +
+        `⚙️ Si tienes algun problema relacionado con soporte, dirigete a tu chat *${cliente.nombre_grupo_wp}* y uno de mis compañeros te atendera`,
         message.id
     );
 
@@ -95,19 +201,55 @@ export const handleTextMessage = async (from, message, cliente) => {
 export const handleInteractiveMessage = async (from, message, cliente) => {
     try {
         const replyId = message.interactive?.button_reply?.id;
+        const sessionData = await redis.get(`session:${from}`);
 
+        if (!sessionData) {
+            await sendWhatsAppMessage(from, "⚠️ No tienes recargas pendientes.", message.id);
+            return;
+        }
+
+        const session = JSON.parse(sessionData);
+        // Confirmación antes de crear ticket
+        const chip = session.chip;
+        // Confirmación de recarga
+        if (session.estado === "confirmando_recarga") {
+            if (replyId === "confirmar_si") {
+                await createTicket(from, cliente, chip, session.monto, session.session, message.id);
+                await clearSession(from);
+                return;
+            }
+
+            if (replyId === "confirmar_no") {
+                await sendWhatsAppMessage(
+                    from,
+                    "🚫 Recarga cancelada. Si deseas intentar otra, envía la imagen nuevamente.",
+                    message.id
+                );
+                try {
+                    if (chip?.icc || chip?.dn) {
+                        await releaseChip(chip.icc, chip.dn);
+                    }
+                } catch (apiErr) {
+                    console.error("Error liberando chip tras fallo:", apiErr.message);
+                }
+                await clearSession(from);
+                return;
+            }
+
+            await sendWhatsAppMessage(
+                from,
+                "🤔 No entendí tu respuesta.\nPor favor confirma:\n✅ *Sí* para continuar\n❌ *No* para cancelar.",
+                message.id
+            );
+            return;
+        }
+
+        // Validación de botones de monto
         if (!replyId?.startsWith("monto_")) {
             await sendWhatsAppMessage(from, "⚠️ Respuesta no válida.", message.id);
             return;
         }
 
-        const sessionData = await redis.get(`session:${from}`);
-        if (!sessionData) {
-            await sendWhatsAppMessage(from, "⚠️ No tienes recarga pendiente.", message.id);
-            return;
-        }
-
-        const session = JSON.parse(sessionData);
         if (!session.chip) {
             await clearSession(from);
             await sendWhatsAppMessage(from, "⚠️ Sesión inválida. Inicia de nuevo.", message.id);
@@ -125,8 +267,24 @@ export const handleInteractiveMessage = async (from, message, cliente) => {
             return;
         }
 
-        await createTicket(from, cliente, session.chip, monto, session, message.id);
-        await clearSession(from);
+        const confirmData = {
+            estado: "confirmando_recarga",
+            chip,
+            monto,
+            session,
+        };
+
+        await redis.set(`session:${from}`, JSON.stringify(confirmData), "EX", 300);
+
+        const confirmText = `Por favor confirma los datos de tu recarga:\n\n` +
+            `📱 *DN:* ${chip.dn}\n` +
+            `💳 *ICCID:* ${chip.icc}\n` +
+            `🏢 *Compañía:* ${chip.compania || 'Desconocida'}\n` +
+            `💰 *Monto:* $${monto}\n\n` +
+            `¿Deseas continuar con la recarga?`;
+
+        await sendQuickReplies(from, confirmText, generateConfirmationReplies(), message.id);
+
         console.log(`Ticket confirmado por botón: ${monto}`);
     } catch (err) {
         console.error("Error en botón:", err.message);
@@ -142,10 +300,11 @@ export const handleImageMessage = async (from, message, cliente) => {
     const mediaId = message.image.id;
     const filePath = path.join("uploads", `sim_${Date.now()}.jpg`);
     let extracted = null;
+
     try {
         const activeSession = await redis.get(`session:${from}`);
         if (activeSession) {
-            await sendWhatsAppMessage(from, "Estamos validando tu primera solicitud 🤖\nEn un momento podras solicitar un nuevo sim.", message.id);
+            await sendWhatsAppMessage(from, "Estamos validando tu primera solicitud 🤖\nEn un momento podrás solicitar un nuevo sim.", message.id);
             return;
         }
 
@@ -164,7 +323,6 @@ export const handleImageMessage = async (from, message, cliente) => {
         }
 
         if (extracted.validaRed === false) {
-
             const chip = {
                 id: null,
                 icc: extracted.iccid,
@@ -178,9 +336,8 @@ export const handleImageMessage = async (from, message, cliente) => {
                 fechaConsultaTkBot: null
             };
 
-            const montoAuto = 100;
+            const montoAuto = 50;
             await createTicket(from, cliente, chip, montoAuto, { status: "success", reliability: 100, by: "ICCID & DN" }, message.id);
-
             await clearSession(from);
             return;
         }
@@ -191,7 +348,7 @@ export const handleImageMessage = async (from, message, cliente) => {
             respApi = await getChipData(extracted.iccid || "", extracted.numero || "");
             console.log(respApi);
         } catch {
-            await sendWhatsAppMessage(from, "Al parecer tengo un error en este momento 🥲\n¿Podriamos volver a comenzar con tu solicitud?.", message.id);
+            await sendWhatsAppMessage(from, "Al parecer tengo un error en este momento 🥲\n¿Podríamos volver a comenzar con tu solicitud?.", message.id);
             try {
                 if (extracted?.iccid || extracted?.numero) {
                     await releaseChip(extracted.iccid, extracted.numero);
@@ -208,7 +365,7 @@ export const handleImageMessage = async (from, message, cliente) => {
             if (respApi.blocked) {
                 await sendWhatsAppMessage(
                     from,
-                    `*Ya me compartiste este sim, en seguida obtendras respuesta de tu solicitud* 😅\n\n` +
+                    `*Ya me compartiste este sim, en seguida obtendrás respuesta de tu solicitud* 😅\n\n` +
                     `📅 Última consulta: ${respApi.lastConsulta}\n\n` +
                     `❌ No puedo volver a procesarlo, espera el folio de recarga.`,
                     message.id
@@ -252,24 +409,136 @@ export const handleImageMessage = async (from, message, cliente) => {
                 from,
                 `*${respApi.message || 'Chip no encontrado'}* 🧐 \n\n` +
                 `El chip no está registrado en nuestro inventario.\n` +
-                `Si crees que es mi error, intenta con una imagen mas clara y asegurate de que se muestren todos los datos.🤖`,
+                `Si crees que es mi error, intenta con una imagen más clara y asegúrate de que se muestren todos los datos.🤖`,
                 message.id
             );
             await clearSession(from);
             return;
         }
 
-
         // Chip válido
         const chip = respApi.data;
-        console.log("CHIP:" + chip);
+        console.log("CHIP:", chip);
+
+        // Flujo especial para chips VIRGIN     
+        if (chip.compania?.toUpperCase() === "VIRGIN") {
+            // Si NO hay DN ni en el extract ni en la API
+            const dn = extracted.numero?.trim() || chip.dn?.trim();
+
+            if (!dn) {
+                // Pedirlo manualmente al cliente
+                await redis.set(
+                    `session:${from}`,
+                    JSON.stringify({
+                        estado: "esperando_dn",
+                        chip,
+                        status: respApi.status,
+                        reliability: respApi.reliability,
+                        by: respApi.by,
+                    }),
+                    "EX",
+                    300
+                );
+
+                await sendWhatsAppMessage(
+                    from,
+                    "📱 *Chip VIRGIN detectado*, pero no encontré el número telefónico.\n\nPor favor escribe el *número del SIM* (10 dígitos) para continuar con la recarga de *$100* 💰.",
+                    message.id
+                );
+                return;
+            }
+
+            const chipVirgin = { ...chip, dn };
+
+            const confirmData = {
+                estado: "confirmando_recarga",
+                chip: chipVirgin,
+                monto: 100,
+                session: respApi,
+            };
+
+            await redis.set(`session:${from}`, JSON.stringify(confirmData), "EX", 300);
+
+            const confirmText = `Por favor confirma los datos de tu recarga:\n\n` +
+                `📱 *DN:* ${chipVirgin.dn}\n` +
+                `💳 *ICCID:* ${chipVirgin.icc}\n` +
+                `🏢 *Compañía:* VIRGIN\n` +
+                `💰 *Monto:* $100\n\n` +
+                `¿Deseas continuar con la recarga?`;
+
+            await sendQuickReplies(from, confirmText, generateConfirmationReplies(), message.id);
+            return;
+        }
+
+        //Flujo automático para TELCEL y BAIT
+        const compania = chip.compania?.toUpperCase() || "";
+
+        // TELCEL = $50 automático
+        if (compania === "TELCEL") {
+            const confirmData = {
+                estado: "confirmando_recarga",
+                chip,
+                monto: 50,
+                session: respApi,
+            };
+
+            await redis.set(`session:${from}`, JSON.stringify(confirmData), "EX", 300);
+
+            const confirmText = `Por favor confirma los datos de tu recarga:\n\n` +
+                `📱 *DN:* ${chip.dn}\n` +
+                `💳 *ICCID:* ${chip.icc}\n` +
+                `🏢 *Compañía:* TELCEL\n` +
+                `💰 *Monto:* $50\n\n` +
+                `¿Deseas continuar con la recarga?`;
+
+            await sendQuickReplies(from, confirmText, generateConfirmationReplies(), message.id);
+            return;
+        }
+
+        // BAIT = $100 automático
+        if (compania === "BAIT") {
+            const confirmData = {
+                estado: "confirmando_recarga",
+                chip,
+                monto: 100,
+                session: respApi,
+            };
+
+            await redis.set(`session:${from}`, JSON.stringify(confirmData), "EX", 300);
+
+            const confirmText = `Por favor confirma los datos de tu recarga:\n\n` +
+                `📱 *DN:* ${chip.dn}\n` +
+                `💳 *ICCID:* ${chip.icc}\n` +
+                `🏢 *Compañía:* BAIT\n` +
+                `💰 *Monto:* $100\n\n` +
+                `¿Deseas continuar con la recarga?`;
+
+            await sendQuickReplies(from, confirmText, generateConfirmationReplies(), message.id);
+            return;
+        }
 
         const caption = message.image?.caption || "";
         const montoFromCaption = extractAmountFromText(caption);
 
         if (montoFromCaption && isAmountAllowed(cliente, montoFromCaption)) {
-            await createTicket(from, cliente, chip, montoFromCaption, respApi, message.id);
-            await clearSession(from);
+            const confirmData = {
+                estado: "confirmando_recarga",
+                chip,
+                monto: montoFromCaption,
+                session: respApi, // puedes usar respApi como referencia de la validación
+            };
+
+            await redis.set(`session:${from}`, JSON.stringify(confirmData), "EX", 300);
+
+            const confirmText = `Por favor confirma los datos de tu recarga:\n\n` +
+                `📱 *DN:* ${chip.dn}\n` +
+                `💳 *ICCID:* ${chip.icc}\n` +
+                `🏢 *Compañía:* ${chip.compania || 'Desconocida'}\n` +
+                `💰 *Monto:* $${montoFromCaption}\n\n` +
+                `¿Deseas continuar con la recarga?`;
+
+            await sendQuickReplies(from, confirmText, generateConfirmationReplies(), message.id);
+            return;
         } else {
             await redis.set(
                 `session:${from}`,
@@ -293,14 +562,14 @@ export const handleImageMessage = async (from, message, cliente) => {
         }
     } catch (err) {
         console.error("Error procesando imagen:", err.message);
-        await sendWhatsAppMessage(from, "No pude detectar informacion concreta 😟 \nIntenta de nuevo, si el error persiste, ponte en contacto con tu mayorita y reporta el error 😥.", message.id);
+        await sendWhatsAppMessage(from, "No pude detectar información concreta 😟 \nIntenta de nuevo. Si el error persiste, contacta a tu mayorista 😥.", message.id);
         try {
-                if (extracted?.iccid || extracted?.numero) {
-                    await releaseChip(extracted.iccid, extracted.numero);
-                }
-            } catch (apiErr) {
-                console.error("Error liberando chip tras fallo:", apiErr.message);
+            if (extracted?.iccid || extracted?.numero) {
+                await releaseChip(extracted.iccid, extracted.numero);
             }
+        } catch (apiErr) {
+            console.error("Error liberando chip tras fallo:", apiErr.message);
+        }
         await clearSession(from);
     } finally {
         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
