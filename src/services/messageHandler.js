@@ -380,7 +380,7 @@ export const handleImageMessage = async (from, message, cliente) => {
                     `*Chip caducado* 🫣 \n\n` +
                     `Recuerda que tus sims cuentan con una fecha de caducidad\n` +
                     `Pero no te preocupes, puedes cambiar este sim con tu mayorista\n\n` +
-                    `Te comparto los detalles de la recarga:\n` +
+                    `Te comparto los detalles de la recarga:\n\n` +
                     `📅 Fecha entrega: ${respApi.dateDelivery}\n` +
                     `⛔ Expiró: ${respApi.dateExpired}\n\n` +
                     `❌ No puedo procesar la recarga.`,
