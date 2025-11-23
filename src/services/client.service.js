@@ -5,8 +5,11 @@ export const getClientData = async (phoneNumber) => {
   const [rows] = await pool.query(`
     SELECT 
       dc.*, 
+      pc.descripcion AS prioridad_cliente,
     GROUP_CONCAT(mp.monto ORDER BY mp.monto ASC) AS montos_permitidos
       FROM chatBotRedi.tbl_directorio_clientes dc
+      INNER JOIN chatBotRedi.cat_prioridad_cliente pc
+        ON dc.id_prioridad_cliente = pc.id_prioridad_cliente
       LEFT JOIN chatBotRedi.tbl_montos_permitidos mp 
         ON dc.id_cliente = mp.id_cliente
       WHERE dc.numero_whatsapp = ? 

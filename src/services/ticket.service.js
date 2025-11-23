@@ -116,6 +116,7 @@ export const asignarFolio = async (ticketId, folio, estado, id_usuario_redi, esF
     const [rows] = await pool.query(
       `SELECT 
           c.numero_whatsapp, 
+          t.numero,
           t.monto, 
           t.folio, 
           c.nombre_cliente, 
@@ -143,8 +144,9 @@ export const asignarFolio = async (ticketId, folio, estado, id_usuario_redi, esF
           recarga: ticket.monto,
           fechaRecarga: new Date().toLocaleDateString("sv-SE", { timeZone: "America/Mexico_City" }),
           folio: ticket.folio,
-          usuario: nombreOperador,
-          observaciones: "Recarga completada desde dashboard REDi"
+          usuarioRecarga: nombreOperador,
+          nombreCliente: ticket.nombre_cliente,
+          dn: ticket.numero
         });
         console.log(`Chip actualizado en Laravel para ticket ${ticketId}`);
       } catch (apiErr) {
@@ -256,7 +258,7 @@ export const createTicket = async (from, cliente, chip, monto, respApi, messageI
       Monto: monto,
       Compania: chip.compania,
       Cliente: cliente.nombre_cliente,
-      PrioridadCliente: 'ALTA',
+      PrioridadCliente: cliente.prioridad_cliente,
       Distribuidor: cliente.nombre_distribuidor,
       Estado: "PENDIENTE",
     });

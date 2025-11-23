@@ -424,8 +424,9 @@ export const handleImageMessage = async (from, message, cliente) => {
         if (chip.compania?.toUpperCase() === "VIRGIN") {
             // Si NO hay DN ni en el extract ni en la API
             const dn = extracted.numero?.trim() || chip.dn?.trim();
+            console.log(dn + '<----');
 
-            if (!dn) {
+            if (!dn || isNaN(Number(dn)) || !/^\d{10}$/.test(dn)) {
                 // Pedirlo manualmente al cliente
                 await redis.set(
                     `session:${from}`,
