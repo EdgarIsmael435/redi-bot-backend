@@ -2,6 +2,7 @@ import http from "http";
 import 'dotenv/config';
 import app from "./src/app.js";
 import { initSocket } from "./src/socket.js";
+import "./src/config/redisSubscriber.js";
 
 const PORT = process.env.PORT || 3000;
 

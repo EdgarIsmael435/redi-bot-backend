@@ -1,4 +1,4 @@
-import { clearSession } from "../utils/helpers.js";
+import { clearSession, saveSession } from "../utils/helpers.js";
 import { isAmountAllowed } from "./client.service.js";
 import { createTicket } from "./ticket.service.js";
 import { sendWhatsAppMessage, sendQuickReplies, downloadMediaFile, sendStickerMessage } from "./whatsapp.service.js";
@@ -121,7 +121,7 @@ export const handleTextMessage = async (from, message, cliente) => {
                 session,
             };
 
-            await redis.set(`session:${from}`, JSON.stringify(confirmData), "EX", 300);
+            await saveSession(from, confirmData);
 
             const confirmText = `Por favor confirma los datos de tu recarga:\n\n` +
                 `📱 *DN:* ${dn}\n` +
@@ -168,7 +168,7 @@ export const handleTextMessage = async (from, message, cliente) => {
                 session,
             };
 
-            await redis.set(`session:${from}`, JSON.stringify(confirmData), "EX", 300);
+            await saveSession(from, confirmData);
 
             const confirmText = `Por favor confirma los datos de tu recarga:\n\n` +
                 `📱 *DN:* ${chip.dn}\n` +
@@ -274,7 +274,8 @@ export const handleInteractiveMessage = async (from, message, cliente) => {
             session,
         };
 
-        await redis.set(`session:${from}`, JSON.stringify(confirmData), "EX", 300);
+        await saveSession(from, confirmData);
+
 
         const confirmText = `Por favor confirma los datos de tu recarga:\n\n` +
             `📱 *DN:* ${chip.dn}\n` +
@@ -308,7 +309,9 @@ export const handleImageMessage = async (from, message, cliente) => {
             return;
         }
 
-        await redis.set(`session:${from}`, JSON.stringify({ estado: "procesando_imagen" }), "EX", 300);
+
+        const sessionData = { estado: "procesando_imagen" };
+        await saveSession(from, sessionData);
 
         await sendWhatsAppMessage(from, `Gracias, ${cliente.nombre_cliente} 😁\nHe recibido tu solicitud, voy a procesar tu imagen, dame un momento...`, message.id);
 
@@ -428,18 +431,15 @@ export const handleImageMessage = async (from, message, cliente) => {
 
             if (!dn || isNaN(Number(dn)) || !/^\d{10}$/.test(dn)) {
                 // Pedirlo manualmente al cliente
-                await redis.set(
-                    `session:${from}`,
-                    JSON.stringify({
-                        estado: "esperando_dn",
-                        chip,
-                        status: respApi.status,
-                        reliability: respApi.reliability,
-                        by: respApi.by,
-                    }),
-                    "EX",
-                    300
-                );
+                const sessionData = {
+                    estado: "esperando_dn",
+                    chip,
+                    status: respApi.status,
+                    reliability: respApi.reliability,
+                    by: respApi.by,
+                };
+
+                await saveSession(from, sessionData);
 
                 await sendWhatsAppMessage(
                     from,
@@ -458,7 +458,7 @@ export const handleImageMessage = async (from, message, cliente) => {
                 session: respApi,
             };
 
-            await redis.set(`session:${from}`, JSON.stringify(confirmData), "EX", 300);
+            await saveSession(from, confirmData);
 
             const confirmText = `Por favor confirma los datos de tu recarga:\n\n` +
                 `📱 *DN:* ${chipVirgin.dn}\n` +
@@ -483,7 +483,7 @@ export const handleImageMessage = async (from, message, cliente) => {
                 session: respApi,
             };
 
-            await redis.set(`session:${from}`, JSON.stringify(confirmData), "EX", 300);
+            await saveSession(from, confirmData);
 
             const confirmText = `Por favor confirma los datos de tu recarga:\n\n` +
                 `📱 *DN:* ${chip.dn}\n` +
@@ -505,7 +505,7 @@ export const handleImageMessage = async (from, message, cliente) => {
                 session: respApi,
             };
 
-            await redis.set(`session:${from}`, JSON.stringify(confirmData), "EX", 300);
+            await saveSession(from, confirmData);
 
             const confirmText = `Por favor confirma los datos de tu recarga:\n\n` +
                 `📱 *DN:* ${chip.dn}\n` +
@@ -529,7 +529,7 @@ export const handleImageMessage = async (from, message, cliente) => {
                 session: respApi, // puedes usar respApi como referencia de la validación
             };
 
-            await redis.set(`session:${from}`, JSON.stringify(confirmData), "EX", 300);
+            await saveSession(from, confirmData);
 
             const confirmText = `Por favor confirma los datos de tu recarga:\n\n` +
                 `📱 *DN:* ${chip.dn}\n` +
@@ -541,18 +541,15 @@ export const handleImageMessage = async (from, message, cliente) => {
             await sendQuickReplies(from, confirmText, generateConfirmationReplies(), message.id);
             return;
         } else {
-            await redis.set(
-                `session:${from}`,
-                JSON.stringify({
-                    estado: "esperando_monto",
-                    chip,
-                    status: respApi.status,
-                    reliability: respApi.reliability,
-                    by: respApi.by,
-                }),
-                "EX",
-                300
-            );
+            const sessionData = {
+                estado: "esperando_monto",
+                chip,
+                status: respApi.status,
+                reliability: respApi.reliability,
+                by: respApi.by,
+            };
+
+            await saveSession(from, sessionData);
 
             if (cliente.montos_array?.length > 0) {
                 const quickReplies = generateQuickReplies(cliente.montos_array);
