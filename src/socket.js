@@ -27,7 +27,7 @@ export const initSocket = (server) => {
       console.log(`Usuario autenticado vía socket:`, decoded);
       next();
     } catch (err) {
-      console.warn("Token inválido o expirado en socket:", err.message);
+      console.log("Token inválido o expirado en socket:", err.message);
       next(new Error("Token inválido o expirado"));
     }
   });
