@@ -86,3 +86,87 @@ export const deleteMonto = async (id_monto) => {
   const [res] = await db.query(`DELETE FROM chatBotRedi.tbl_montos_permitidos WHERE id_monto = ?;`, [id_monto]);
   return res.affectedRows > 0;
 };
+
+export const createBulkService = async ({ clientes, prioridad, montos }) => {
+  if (!clientes?.length) {
+    return { inserted: 0, skipped: 0, message: null };
+  }
+
+  const conn = await db.getConnection();
+
+  try {
+    await conn.beginTransaction();
+
+    // 1) Insertar clientes (ignora duplicados por numero_whatsapp)
+    const clientValues = clientes.map((c) => [
+      c.numero_whatsapp,
+      c.nombre_cliente?.trim(),
+      c.nombre_distribuidor?.trim(),
+      c.nombre_grupo_wp?.trim(),
+      prioridad || 1,
+    ]);
+
+    const [res] = await conn.query(
+      `
+      INSERT IGNORE INTO chatBotRedi.tbl_directorio_clientes
+      (numero_whatsapp, nombre_cliente, nombre_distribuidor, nombre_grupo_wp, id_prioridad_cliente)
+      VALUES ?
+      `,
+      [clientValues]
+    );
+
+    const inserted = res.affectedRows;
+    const skipped = clientes.length - inserted;
+
+    // 2) Insertar montos para TODOS los clientes del payload (nuevos y existentes)
+    if (Array.isArray(montos) && montos.length) {
+      const numeros = clientes.map((c) => c.numero_whatsapp);
+
+      // OJO: importante que sea [numeros] (array dentro de array) para IN (?)
+      const [rows] = await conn.query(
+        `
+        SELECT id_cliente, numero_whatsapp
+        FROM chatBotRedi.tbl_directorio_clientes
+        WHERE numero_whatsapp IN (?)
+        `,
+        [numeros]
+      );
+
+      // Construir valores (id_cliente, monto)
+      const montoValues = [];
+      rows.forEach((row) => {
+        montos.forEach((m) => {
+          montoValues.push([row.id_cliente, Number(m)]);
+        });
+      });
+
+      // INSERT IGNORE evita duplicados si ya existe (id_cliente, monto)
+      if (montoValues.length) {
+        await conn.query(
+          `
+          INSERT IGNORE INTO chatBotRedi.tbl_montos_permitidos (id_cliente, monto)
+          VALUES ?
+          `,
+          [montoValues]
+        );
+      }
+    }
+
+    await conn.commit();
+
+    let message = null;
+    if (skipped > 0) {
+      message = `${skipped} números ya se encontraban en la base de datos y fueron omitidos`;
+    }
+
+    return { inserted, skipped, message };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+};
+
+
+

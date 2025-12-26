@@ -4,6 +4,7 @@ import { verifyAndRefreshToken } from "../middleware/auth.js";
 
 const router = express.Router();
 
+router.post("/bulk", verifyAndRefreshToken, usersController.createClientsBulk);
 router.get("/", verifyAndRefreshToken, usersController.getClients);
 router.get("/:id", verifyAndRefreshToken, usersController.getClient);
 router.post("/", verifyAndRefreshToken, usersController.createNewClient);

@@ -1,4 +1,4 @@
-import { getAllClients, getClientById, createClient, updateClient, deleteClient, getMontosByClient, addMonto, deleteMonto } from "../services/clientAdmin.service.js";
+import { getAllClients, getClientById, createClient, updateClient, deleteClient, getMontosByClient, addMonto, deleteMonto, createBulkService } from "../services/clientAdmin.service.js";
 
 export const getClients = async (req, res) => {
   try {
@@ -76,5 +76,37 @@ export const removeMontoPermitido = async (req, res) => {
     res.json(result);
   } catch (error) {
     res.status(500).json({ error: "Error al eliminar monto" });
+  }
+};
+
+export const createClientsBulk = async (req, res) => {
+  try {
+    const { clientes, prioridad, montos } = req.body;
+
+    if (!clientes?.length) {
+      return res.status(400).json({
+        status: "error",
+        message: "No se enviaron clientes",
+      });
+    }
+
+    const result = await createBulkService({
+      clientes,
+      prioridad,
+      montos,
+    });
+
+    res.json({
+      status: "ok",
+      inserted: result.inserted,
+      skipped: result.skipped,
+      message: result.message,
+    });
+  } catch (err) {
+    console.error("Bulk insert error:", err);
+    res.status(500).json({
+      status: "error",
+      message: "Error al cargar clientes",
+    });
   }
 };
