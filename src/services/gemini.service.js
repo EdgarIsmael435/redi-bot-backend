@@ -35,7 +35,7 @@ export const extractDataWithGemini = async (imagePath) => {
   - NO infieras la compañía por el formato del número, prefijos, tipo de SIM o experiencia previa.
   - La marca "RED" NO es un operador móvil, es un distribuidor. Si SOLO aparece "RED" y ningún operador, considera que la compañía es DESCONOCIDA.
     REGLAS DE VALIDACIÓN:
-    CASO 1: Si aparece explícitamente "Telcel" o "Amigo" en la imagen
+    CASO 1: Si aparece explícitamente "Telcel" en la imagen
         - Y el número telefónico NO comienza con 4: Entonces "validaRed" debe ser false.
         - Y el número telefónico SÍ comienza con 4: Entonces "validaRed" debe ser true.
     CASO 2: Si aparece explícitamente cualquier otro operador (AT&T, Unefon, Movistar, Virgin, Bait):
@@ -44,8 +44,8 @@ export const extractDataWithGemini = async (imagePath) => {
         - Entonces "validaRed" debe ser true. 
   PASO 3: EXTRACCIÓN DE DATOS Busca específicamente estos elementos: 
   NÚMERO TELEFÓNICO: 
-  - Busca números de 10 dígitos que empiecen con 55, 56 o 4 (México y Bajio) 
-  - Pueden estar separados por espacios o guiones: "55-1234-5678", "55 1234 5678" o "4221234459"
+  - Busca números de 10 dígitos que empiecen con 55, 56, 2, 7, 4 (México y Bajio) 
+  - Pueden estar separados por espacios o guiones: "55-1234-5678", "55 1234 5678", "4221234459", "2483638270" O "7724896350"
   - Pueden tener formato: "+52 55 1234 5678" (toma solo los 10 dígitos) 
   - En caso de ser virgin, lo mas probable es que no venga el numero en el sim, si lo encuentras sera en un mensaje similar a "Tu numero es: *seguido del número"
   ICCID: 
@@ -58,7 +58,7 @@ export const extractDataWithGemini = async (imagePath) => {
    "iccid": "19-20 dígitos empezando con 89, terminando en F",
    "monto": null,
    "validaRed": "true o false dependiendo de la detección de compania",
-   "detalles_encontrados": "Si la imagen no corresponde a un chip de RED, crea un mensaje amable, corto (máx. 20 palabras) y dirigido al cliente. \nDebe sonar natural y expresivo, como si estuvieras hablando con la persona (ejemplo: 'Qué bonito perro, me encanta 🐶'), evitando frases impersonales como 'Veo un perro gris bonito'. 
+   "detalles_encontrados": "Si la imagen no corresponde a un chip de RED o numero e iccid (ambas) estan como "No encontrado", crea un mensaje amable, corto (máx. 20 palabras) y dirigido al cliente. \nDebe sonar natural y expresivo, como si estuvieras hablando con la persona (ejemplo: 'Qué bonito perro, me encanta 🐶'), evitando frases impersonales como 'Veo un perro gris bonito'. 
     Después del cumplido o comentario, agrega una nota amistosa como por ejemplo (con la misma idea, pero con otras similares para que no suene repetitivo): '(agregar un salto de line de programación \n) Pero parece que no es un chip de RED, intentemos con otra imagen 😅'. \nUsa un tono empático y positivo, con uno o dos emojis amigables. 
     No incluyas literalmente frases como 'Oops, te equivocaste, pero no pasa nada 😅', Si la imagen si corresponde, deja una breve descripción"
    } 

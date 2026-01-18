@@ -55,7 +55,9 @@ export const initSocket = (server) => {
         INNER JOIN chatBotRedi.tbl_directorio_clientes dir 
             ON tk.id_cliente = dir.id_cliente
         INNER JOIN chatBotRedi.cat_prioridad_cliente pr 
-            ON dir.id_prioridad_cliente = pr.id_prioridad_cliente;`);
+            ON dir.id_prioridad_cliente = pr.id_prioridad_cliente
+        ORDER BY tk.id_ticket_recarga DESC;`);
+        
       socket.emit("recharges", rows);
     } catch (err) {
       console.error("Error cargando tickets iniciales:", err.message);

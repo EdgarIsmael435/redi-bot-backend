@@ -177,7 +177,6 @@ export const asignarFolio = async (ticketId, folio, estado, id_usuario_redi, esF
         ticket.numero_whatsapp,
         `✅ *¡Listo! He recargado tu sim, te comparto los detalles:*\n\n` +
         `👤 Cliente: ${ticket.nombre_cliente}\n` +
-        `🏪 Sucursal: ${ticket.nombre_distribuidor}\n` +
         `💰 Monto: $${ticket.monto}\n` +
         `📄 Folio: *${ticket.folio}*\n\n` +
         messagePersonalizate +
@@ -233,7 +232,6 @@ export const createTicket = async (from, cliente, chip, monto, respApi, messageI
       from,
       `✅ *He registrado tu ticket exitosamente, te comparto los detalles:*\n\n` +
       `👤 Cliente: ${cliente.nombre_cliente}\n` +
-      `🏪 Distribuidor: ${cliente.nombre_distribuidor}\n` +
       `📱 Número: ${chip.dn}\n` +
       `🔢 ICCID: ${chip.icc}\n` +
       `📡 Compañía: ${chip.compania}\n` +
@@ -241,7 +239,7 @@ export const createTicket = async (from, cliente, chip, monto, respApi, messageI
       `🎯 ${reliabilityText}\n\n` +
       `🆔 *ID Ticket:* ${result.insertId}\n` +
       `⏳ *Estado:* Pendiente de procesamiento\n` +
-      `⏱️ Tiempo estimado: 1 minutos\n\n`,
+      `⏱️ Tiempo estimado: 1 minuto\n\n`,
       messageId
     );
 

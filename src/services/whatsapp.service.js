@@ -102,7 +102,6 @@ export const downloadMediaFile = async (mediaId, outputPath) => {
 };
 
 export const sendStickerMessage = async (to, stickerId, replyToMessageId = null) => {
-  return;
 
   try {
     const cleanNumber = to.replace("whatsapp:", "").replace("+", "");

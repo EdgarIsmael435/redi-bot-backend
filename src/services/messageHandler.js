@@ -186,11 +186,20 @@ export const handleTextMessage = async (from, message, cliente) => {
     await sendWhatsAppMessage(
         from,
         `¡Hola, ${cliente.nombre_cliente}! 👋\n` +
-        `Es un placer atender a ${cliente.nombre_distribuidor}\n\n` +
+        `Es un placer atenderte 😊\n\n` +
         `📸 Envía la foto de tu SIM para procesar la recarga.\n\n` +
         `⚙️ Si tienes algun problema relacionado con soporte, dirigete a tu chat *${cliente.nombre_grupo_wp}* y uno de mis compañeros te atendera`,
         message.id
     );
+
+    /*  await sendWhatsAppMessage(
+         from,
+         `¡Hola, ${cliente.nombre_cliente}! 👋\n` +
+         `Es un placer atender a ${cliente.nombre_distribuidor}\n\n` +
+         `📸 Envía la foto de tu SIM para procesar la recarga.\n\n` +
+         `⚙️ Si tienes algun problema relacionado con soporte, dirigete a tu chat *${cliente.nombre_grupo_wp}* y uno de mis compañeros te atendera`,
+         message.id
+     ); */
 
     await sendStickerMessage(from, STICKERS.bienvenida);
 };
@@ -326,7 +335,8 @@ export const handleImageMessage = async (from, message, cliente) => {
         }
 
         if (extracted.validaRed === false) {
-            const chip = {
+            await sendWhatsAppMessage(from, "Envia los sims TELCEL a tu grupo de soporte 😅", message.id);
+            /* const chip = {
                 id: null,
                 icc: extracted.iccid,
                 dn: extracted.numero,
@@ -340,7 +350,7 @@ export const handleImageMessage = async (from, message, cliente) => {
             };
 
             const montoAuto = 50;
-            await createTicket(from, cliente, chip, montoAuto, { status: "success", reliability: 100, by: "ICCID & DN" }, message.id);
+            await createTicket(from, cliente, chip, montoAuto, { status: "success", reliability: 100, by: "ICCID & DN" }, message.id); */
             await clearSession(from);
             return;
         }
@@ -570,6 +580,16 @@ export const handleImageMessage = async (from, message, cliente) => {
         }
         await clearSession(from);
     } finally {
-        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        //if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        if (fs.existsSync(filePath)) {
+            const backupDir = "uploads/procesadas";
+
+            if (!fs.existsSync(backupDir)) {
+                fs.mkdirSync(backupDir, { recursive: true });
+            }
+
+            const backupPath = `${backupDir}/${path.basename(filePath)}`;
+            fs.renameSync(filePath, backupPath);
+        }
     }
 };

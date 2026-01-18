@@ -20,9 +20,12 @@ export const receiveWebhook = async (req, res) => {
     const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
     if (!message) return res.sendStatus(200);
+    
+    console.log(message);
 
     const from = message.from;
     const cliente = await getClientData(from);
+    console.log("Conversación iniciada por: " + from);
 
     if (!cliente) {
       await sendWhatsAppMessage(
