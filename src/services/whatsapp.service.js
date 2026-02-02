@@ -1,7 +1,7 @@
 import axios from "axios";
 import fs from "fs";
 
-const WHATSAPP_API_URL = "https://graph.facebook.com/v21.0";
+const WHATSAPP_API_URL = "https://graph.facebook.com/v24.0";
 
 export const sendQuickReplies = async (to, text, quickReplies, replyToMessageId = null) => {
   try {
@@ -83,7 +83,7 @@ export const sendWhatsAppMessage = async (to, message, replyToMessageId = null) 
 };
 
 export const downloadMediaFile = async (mediaId, outputPath) => {
-  const urlResp = await axios.get(`https://graph.facebook.com/v21.0/${mediaId}`, {
+  const urlResp = await axios.get(`https://graph.facebook.com/v24.0/${mediaId}`, {
     headers: { Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}` },
   });
   const mediaUrl = urlResp.data.url;

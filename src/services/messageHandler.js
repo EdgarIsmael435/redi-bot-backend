@@ -308,7 +308,22 @@ export const handleInteractiveMessage = async (from, message, cliente) => {
 // =========================================================
 export const handleImageMessage = async (from, message, cliente) => {
     const mediaId = message.image.id;
-    const filePath = path.join("uploads", `sim_${Date.now()}.jpg`);
+       const now = new Date();
+    const pad = n => String(n).padStart(2, "0");
+
+    const fileName =
+        "sim_" +
+        now.getFullYear() +
+        pad(now.getMonth() + 1) +
+        pad(now.getDate()) + "_" +
+        pad(now.getHours()) +
+        pad(now.getMinutes()) +
+        pad(now.getSeconds()) +
+        "_" +
+        now.getMilliseconds() +
+        ".jpg";
+
+    const filePath = path.join("uploads", fileName);
     let extracted = null;
 
     try {

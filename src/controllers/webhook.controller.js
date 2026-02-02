@@ -35,6 +35,8 @@ export const receiveWebhook = async (req, res) => {
       );
       return res.sendStatus(200);
     }
+    
+    console.log(cliente);
 
     if (message.type === "text") await handleTextMessage(from, message, cliente);
     if (message.type === "interactive") await handleInteractiveMessage(from, message, cliente);
