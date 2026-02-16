@@ -323,7 +323,7 @@ export const handleImageMessage = async (from, message, cliente) => {
         now.getMilliseconds() +
         ".jpg";
 
-    const filePath = path.join("uploads", fileName);
+    const filePath = path.join("uploads/clientes", fileName);
     let extracted = null;
 
     try {
@@ -597,7 +597,7 @@ export const handleImageMessage = async (from, message, cliente) => {
     } finally {
         //if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
         if (fs.existsSync(filePath)) {
-            const backupDir = "uploads/procesadas";
+            const backupDir = "uploads/clientes/procesadas";
 
             if (!fs.existsSync(backupDir)) {
                 fs.mkdirSync(backupDir, { recursive: true });

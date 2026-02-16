@@ -1,5 +1,7 @@
 import { handleTextMessage, handleInteractiveMessage, handleImageMessage } from "../services/messageHandler.js";
+import { handleMayoristaImage, handleMayoristaText, handleMayoristaInteractive } from "../services/mayoristaHandler.js"
 import { getClientData } from "../services/client.service.js";
+import { getMayoristaData } from "../services/mayorista.service.js";
 import { sendWhatsAppMessage } from "../services/whatsapp.service.js";
 
 export const verifyWebhook = (req, res) => {
@@ -20,29 +22,55 @@ export const receiveWebhook = async (req, res) => {
     const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
     if (!message) return res.sendStatus(200);
-    
+
     console.log(message);
 
     const from = message.from;
-    const cliente = await getClientData(from);
-    console.log("Conversación iniciada por: " + from);
 
-    if (!cliente) {
-      await sendWhatsAppMessage(
-        from,
-        "*Acceso no autorizado*\n\nTu número no está registrado en nuestro sistema. 😅\n\nPonte en contacto con tu mayorista para interactuar con REDi. 🤖",
-        message.id
-      );
+
+    // 1. Intentar como cliente
+    const cliente = await getClientData(from);
+
+    if (cliente) {
+      console.log("Conversación iniciada por CLIENTE: " + from);
+      if (message.type === "text") {
+        await handleTextMessage(from, message, cliente);
+      }
+      if (message.type === "interactive") {
+        await handleInteractiveMessage(from, message, cliente);
+      }
+      if (message.type === "image") {
+        await handleImageMessage(from, message, cliente);
+      }
       return res.sendStatus(200);
     }
-    
-    console.log(cliente);
 
-    if (message.type === "text") await handleTextMessage(from, message, cliente);
-    if (message.type === "interactive") await handleInteractiveMessage(from, message, cliente);
-    if (message.type === "image") await handleImageMessage(from, message, cliente);
+    // 2. Intentar como mayorista
+    const mayorista = await getMayoristaData(from);
 
-    res.sendStatus(200);
+    if (mayorista) {
+      console.log("Conversación iniciada por MAYORISTA: " + from);
+      if (message.type === "text") {
+        await handleMayoristaText(from, message, mayorista);
+      }
+      if (message.type === "interactive") {
+        await handleMayoristaInteractive(from, message, mayorista);
+      }
+      if (message.type === "image") {
+        await handleMayoristaImage(from, message, mayorista);
+      }
+      return res.sendStatus(200);
+    }
+
+    // 3. No autorizado
+    await sendWhatsAppMessage(
+      from,
+      "*Acceso no autorizado*\n\nTu número no está registrado en el sistema.",
+      message.id
+    );
+
+    return res.sendStatus(200);
+
   } catch (err) {
     console.error("Error en webhook:", err.message);
     res.sendStatus(500);
