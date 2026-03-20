@@ -1,5 +1,5 @@
 export const STICKERS = {
-  bienvenida: "1811500879554428",
-  venta: "1263938985646906",
-  proceso: "1506896067046282",
+  bienvenida: "1568114127630970",
+  venta: "1213690970751348",
+  proceso: "1583652642894273",
 };

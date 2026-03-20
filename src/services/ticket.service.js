@@ -18,6 +18,7 @@ export const iniciarTimerFolio = (ticketId) => {
             tk.nombre_compania       AS Compania,
             tk.monto                 AS Monto,
             tk.numero                AS Numero,
+            tk.fecha_panza           AS FechaPanza,
             tk.folio                 AS Folio,
             tk.fecha_registro        AS FechaSolicitud,
             dir.nombre_cliente       AS Cliente,
@@ -201,8 +202,8 @@ export const createTicket = async (from, cliente, chip, monto, respApi, messageI
   try {
     const [result] = await pool.query(
       `INSERT INTO chatBotRedi.tbl_tickets_recarga 
-      (numero, iccid, monto, nombre_compania, id_estado, folio, id_chip_red, msg_id, reliability, match_by, id_cliente)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+      (numero, iccid, monto, nombre_compania, id_estado, folio, id_chip_red, msg_id, reliability, match_by, id_cliente, fecha_panza)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
       [
         chip.dn,
         chip.icc,
@@ -215,6 +216,7 @@ export const createTicket = async (from, cliente, chip, monto, respApi, messageI
         respApi.reliability || null,
         respApi.by || null,
         cliente.id_cliente,
+        respApi.fecha_panza
       ]
     );
 
@@ -255,6 +257,7 @@ export const createTicket = async (from, cliente, chip, monto, respApi, messageI
       Numero: chip.dn,
       Monto: monto,
       Compania: chip.compania,
+      FechaPanza: respApi.fecha_panza,
       Cliente: cliente.nombre_cliente,
       PrioridadCliente: cliente.prioridad_cliente,
       Distribuidor: cliente.nombre_distribuidor,

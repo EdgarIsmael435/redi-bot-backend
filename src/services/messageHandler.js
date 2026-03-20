@@ -308,7 +308,7 @@ export const handleInteractiveMessage = async (from, message, cliente) => {
 // =========================================================
 export const handleImageMessage = async (from, message, cliente) => {
     const mediaId = message.image.id;
-       const now = new Date();
+    const now = new Date();
     const pad = n => String(n).padStart(2, "0");
 
     const fileName =
@@ -390,6 +390,7 @@ export const handleImageMessage = async (from, message, cliente) => {
 
         // Errores API
         if (respApi.status === "error") {
+            
             if (respApi.blocked) {
                 await sendWhatsAppMessage(
                     from,
@@ -409,7 +410,7 @@ export const handleImageMessage = async (from, message, cliente) => {
                     `Recuerda que tus sims cuentan con una fecha de caducidad\n` +
                     `Pero no te preocupes, puedes cambiar este sim con tu mayorista\n\n` +
                     `Te comparto los detalles de la recarga:\n\n` +
-                    `📅 Fecha entrega: ${respApi.dateDelivery}\n` +
+                    `📅 Fecha entrega: ${respApi.dateBase}\n` +
                     `⛔ Expiró: ${respApi.dateExpired}\n\n` +
                     `❌ No puedo procesar la recarga.`,
                     message.id
@@ -427,6 +428,30 @@ export const handleImageMessage = async (from, message, cliente) => {
                     `📅 Fecha recarga: ${respApi.data.fechaRecarga}\n` +
                     `📄 Folio: ${respApi.data.folio}\n\n` +
                     `❌ No puedo volver a recargar.`,
+                    message.id
+                );
+                await clearSession(from);
+                return;
+            }
+
+            if (respApi.especial) {
+                await sendWhatsAppMessage(
+                    from,
+                    `*Este sim no pertenece al inventario del distribuidor.* 🚫\n\n` +
+                    `Por favor valida con tu mayorista para mas información.\n\n` +
+                    `❌ No puedo procesar la recarga.`,
+                    message.id
+                );
+                await clearSession(from);
+                return;
+            }
+            
+            if (respApi.panza) {
+                await sendWhatsAppMessage(
+                    from,
+                    `*Este chip no se puede recargar* ⚠️\n\n` +
+                    `Una disculpa, el chip marco un error, favor de cambiarlo y entregar este al vendedor. 🥲\n\n` +
+                    `❌ No puedo procesar la recarga.`,
                     message.id
                 );
                 await clearSession(from);

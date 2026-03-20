@@ -2,10 +2,10 @@ import path from "path";
 import crypto from "crypto";
 import fs from "fs";
 import redis from "../config/redis.js";
-import { 
-    sendWhatsAppMessage, 
-    downloadMediaFile, 
-    sendQuickReplies 
+import {
+    sendWhatsAppMessage,
+    downloadMediaFile,
+    sendQuickReplies
 } from "./whatsapp.service.js";
 import {
     createImagenProcesada,
@@ -174,10 +174,10 @@ export const handleMayoristaImage = async (from, message, mayorista) => {
                 }
                 // Si hay datos pero falló la API, marcamos error genérico
                 await marcarChipDetectado(chipId, "ERROR", "ERROR_API");
-                chipsInvalidos.push({ 
-                    icc: chip.icc, 
-                    dn: chip.dn, 
-                    motivo: "ERROR_API" 
+                chipsInvalidos.push({
+                    icc: chip.icc,
+                    dn: chip.dn,
+                    motivo: "ERROR_API"
                 });
                 continue;
             }
@@ -192,8 +192,8 @@ export const handleMayoristaImage = async (from, message, mayorista) => {
 
                 chipsReasignables.push({
                     chipId,
-                    icc: chip.icc,
-                    dn: chip.dn,
+                    icc: respApi.data?.icc,
+                    dn: respApi.data?.dn,
                     vendedor_actual: respApi.data?.vendedor || "DESCONOCIDO"
                 });
                 continue;
@@ -243,10 +243,10 @@ export const handleMayoristaImage = async (from, message, mayorista) => {
         if (chipsReasignables.length > 0) {
             resumen += `🔁 *SIMs ya asignados*\n`;
             chipsReasignables.slice(0, 5).forEach(c => {
-                resumen += `• ICC ${c.icc}: ${c.vendedor_actual}\n`;
+                resumen += `• ${c.icc ? 'ICC ' + c.icc : 'DN ' + c.dn}: ${c.vendedor_actual}\n`;
             });
             resumen += `\n¿Deseas *reasignarlos*?`;
-            
+
             await saveSession(`mayorista:${from}`, {
                 estado: "confirmar_reasignacion",
                 chips_validos: chipsValidos,
@@ -257,7 +257,7 @@ export const handleMayoristaImage = async (from, message, mayorista) => {
             await sendQuickReplies(from, resumen, generateSiNoReplies(), message.id);
         } else if (chipsValidos.length > 0) {
             resumen += `✍️ Escribe el *nombre del cliente* para continuar.\n`;
-            
+
             await saveSession(`mayorista:${from}`, {
                 estado: "esperando_cliente",
                 chips_validos: chipsValidos,
@@ -309,8 +309,8 @@ export const handleMayoristaText = async (from, message, mayorista) => {
     if (data.estado === "confirmar_reasignacion") {
         // Si el usuario responde con texto en vez de usar los botones
         await sendWhatsAppMessage(
-            from, 
-            "⚠️ Por favor usa los botones ✅ *Sí* o ❌ *No* para responder.", 
+            from,
+            "⚠️ Por favor usa los botones ✅ *Sí* o ❌ *No* para responder.",
             message.id
         );
         return;
@@ -325,8 +325,8 @@ export const handleMayoristaText = async (from, message, mayorista) => {
 
         if (!clientes?.length) {
             await sendWhatsAppMessage(
-                from, 
-                "No encontré clientes con ese nombre. Intenta de nuevo.", 
+                from,
+                "No encontré clientes con ese nombre. Intenta de nuevo.",
                 message.id
             );
             return;
@@ -370,18 +370,18 @@ export const handleMayoristaText = async (from, message, mayorista) => {
     /* ============ SELECCIONANDO CLIENTE ============ */
     if (data.estado === "seleccionando_cliente") {
         const num = parseInt(texto);
-        
+
         if (isNaN(num) || num < 1 || num > data.clientes_encontrados.length) {
             await sendWhatsAppMessage(
-                from, 
-                `Número inválido. Escribe un número entre 1 y ${data.clientes_encontrados.length}`, 
+                from,
+                `Número inválido. Escribe un número entre 1 y ${data.clientes_encontrados.length}`,
                 message.id
             );
             return;
         }
 
         const c = data.clientes_encontrados[num - 1];
-        
+
         await saveSession(sessionId, {
             ...data,
             estado: "esperando_confirmacion",
@@ -401,8 +401,8 @@ export const handleMayoristaText = async (from, message, mayorista) => {
     if (data.estado === "esperando_confirmacion") {
         // Si el usuario responde con texto en vez de usar los botones
         await sendWhatsAppMessage(
-            from, 
-            "⚠️ Por favor usa los botones ✅ *Sí* o ❌ *No* para responder.", 
+            from,
+            "⚠️ Por favor usa los botones ✅ *Sí* o ❌ *No* para responder.",
             message.id
         );
         return;
@@ -512,7 +512,7 @@ export const handleMayoristaInteractive = async (from, message, mayorista) => {
                 for (const chip of data.chips_validos) {
                     try {
                         const esReasignacion = chipsReasignablesICCs.has(chip.icc);
-                        
+
                         await asignarVendedorMayorista({
                             icc: chip.icc,
                             id_cliente: data.cliente_seleccionado.id,
