@@ -199,6 +199,8 @@ export const asignarFolio = async (ticketId, folio, estado, id_usuario_redi, esF
 
 export const createTicket = async (from, cliente, chip, monto, respApi, messageId) => {
   console.log("Crear ticket");
+  const fechaPanza = respApi?.data?.fecha_panza ?? respApi?.fecha_panza ?? null;
+  console.log(fechaPanza);
   try {
     const [result] = await pool.query(
       `INSERT INTO chatBotRedi.tbl_tickets_recarga 
@@ -216,7 +218,7 @@ export const createTicket = async (from, cliente, chip, monto, respApi, messageI
         respApi.reliability || null,
         respApi.by || null,
         cliente.id_cliente,
-        respApi.fecha_panza
+        fechaPanza
       ]
     );
 
@@ -257,7 +259,7 @@ export const createTicket = async (from, cliente, chip, monto, respApi, messageI
       Numero: chip.dn,
       Monto: monto,
       Compania: chip.compania,
-      FechaPanza: respApi.fecha_panza,
+      FechaPanza: fechaPanza,
       Cliente: cliente.nombre_cliente,
       PrioridadCliente: cliente.prioridad_cliente,
       Distribuidor: cliente.nombre_distribuidor,

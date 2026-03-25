@@ -34,6 +34,13 @@ const extractAmountFromText = (text) => {
     return null;
 };
 
+///////SESION DATA
+const buildSessionMeta = (respApi) => ({
+    status: respApi.status,
+    reliability: respApi.reliability,
+    by: respApi.by,
+    fecha_panza: respApi.data?.fecha_panza || null,
+});
 // =========================================================
 // Quick replies
 // =========================================================
@@ -118,7 +125,12 @@ export const handleTextMessage = async (from, message, cliente) => {
                 estado: "confirmando_recarga",
                 chip,
                 monto: 100,
-                session,
+                session: {
+                    status: session.status,
+                    reliability: session.reliability,
+                    by: session.by,
+                    fecha_panza: session.fecha_panza || null,
+                },
             };
 
             await saveSession(from, confirmData);
@@ -165,7 +177,12 @@ export const handleTextMessage = async (from, message, cliente) => {
                 estado: "confirmando_recarga",
                 chip,
                 monto,
-                session,
+                session: {
+                    status: session.status,
+                    reliability: session.reliability,
+                    by: session.by,
+                    fecha_panza: session.fecha_panza || null,
+                },
             };
 
             await saveSession(from, confirmData);
@@ -280,7 +297,12 @@ export const handleInteractiveMessage = async (from, message, cliente) => {
             estado: "confirmando_recarga",
             chip,
             monto,
-            session,
+            session: {
+                status: session.status,
+                reliability: session.reliability,
+                by: session.by,
+                fecha_panza: session.fecha_panza || null,
+            }
         };
 
         await saveSession(from, confirmData);
@@ -390,7 +412,7 @@ export const handleImageMessage = async (from, message, cliente) => {
 
         // Errores API
         if (respApi.status === "error") {
-            
+
             if (respApi.blocked) {
                 await sendWhatsAppMessage(
                     from,
@@ -445,7 +467,7 @@ export const handleImageMessage = async (from, message, cliente) => {
                 await clearSession(from);
                 return;
             }
-            
+
             if (respApi.panza) {
                 await sendWhatsAppMessage(
                     from,
@@ -487,6 +509,7 @@ export const handleImageMessage = async (from, message, cliente) => {
                     status: respApi.status,
                     reliability: respApi.reliability,
                     by: respApi.by,
+                    fecha_panza: respApi.data?.fecha_panza || null,
                 };
 
                 await saveSession(from, sessionData);
@@ -505,7 +528,7 @@ export const handleImageMessage = async (from, message, cliente) => {
                 estado: "confirmando_recarga",
                 chip: chipVirgin,
                 monto: 100,
-                session: respApi,
+                session: buildSessionMeta(respApi),
             };
 
             await saveSession(from, confirmData);
@@ -530,7 +553,7 @@ export const handleImageMessage = async (from, message, cliente) => {
                 estado: "confirmando_recarga",
                 chip,
                 monto: 50,
-                session: respApi,
+                session: buildSessionMeta(respApi),
             };
 
             await saveSession(from, confirmData);
@@ -552,7 +575,7 @@ export const handleImageMessage = async (from, message, cliente) => {
                 estado: "confirmando_recarga",
                 chip,
                 monto: 100,
-                session: respApi,
+                session: buildSessionMeta(respApi),
             };
 
             await saveSession(from, confirmData);
@@ -576,7 +599,7 @@ export const handleImageMessage = async (from, message, cliente) => {
                 estado: "confirmando_recarga",
                 chip,
                 monto: montoFromCaption,
-                session: respApi, // puedes usar respApi como referencia de la validación
+                session: buildSessionMeta(respApi), // puedes usar respApi como referencia de la validación
             };
 
             await saveSession(from, confirmData);
@@ -597,6 +620,7 @@ export const handleImageMessage = async (from, message, cliente) => {
                 status: respApi.status,
                 reliability: respApi.reliability,
                 by: respApi.by,
+                fecha_panza: respApi.data?.fecha_panza || null,
             };
 
             await saveSession(from, sessionData);
