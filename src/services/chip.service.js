@@ -86,11 +86,20 @@ export const validateChipMayorista = async ({
 
     params.append("codigo_mayorista", codigo_mayorista);
 
-    if (icc) params.append("icc", icc);
-    if (dn) params.append("dn", dn);
+    if (icc) {
+      params.append("icc", icc);
+    } else {
+      params.append("icc", "NA");
+    }
+
+    if (dn) {
+      params.append("dn", dn);
+    } else {
+      params.append("dn", "NA");
+    }
 
     const url = `${CHIP_API_VALIDATE_MAYORISTA}?${params.toString()}`;
-
+    console.log(url);
     const { data } = await axios.get(url, {
       timeout: 10000,
       validateStatus: () => true,
