@@ -15,6 +15,9 @@ export const ai = USE_VERTEX
   : new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-3.1-flash-lite";
+// Modelo separado para la extracción de chips mayoristas (imagen con varias tarjetas SIM),
+// para poder probar un tier más preciso sin afectar el flujo normal de validación de chips.
+export const GEMINI_MODEL_MAYORISTA = process.env.GEMINI_MODEL_MAYORISTA ?? "gemini-3.6-flash";
 export const GEMINI_BACKEND = USE_VERTEX ? "vertex" : "apikey";
 
 export const MIME_BY_EXT = {
