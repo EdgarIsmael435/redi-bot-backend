@@ -19,6 +19,7 @@ Detectar TODOS los chips SIM visibles en la imagen.
 
 REGLAS GENERALES:
 - Analiza la imagen completa, incluso si hay varias tarjetas SIM.
+- Examina cada tarjeta de forma individual y completa antes de pasar a la siguiente; no la descartes a la primera mirada.
 - Corrige mentalmente rotaciones, espejo o imagen invertida.
 - Ignora texto borroso, reflejos o números incompletos.
 - NO inventes datos.
@@ -31,6 +32,8 @@ DETECCIÓN DE ICCID:
 - Puede estar separado por espacios.
 - Puede terminar en letra F.
 - Devuelve SOLO números y letra F si existe.
+- El ICCID casi siempre está impreso como texto (no solo como código de barras), normalmente junto o debajo del código de barras. Ese texto puede ser pequeño, tener bajo contraste (por ejemplo texto oscuro sobre fondo oscuro o de color), o estar parcialmente tapado por el código de barras: revisa esa zona con especial cuidado antes de marcarlo como "No encontrado".
+- El diseño de la tarjeta (colores, fondo, tipografía) varía según la compañía; no asumas que un diseño con fondo oscuro o de color significa que el número no está impreso.
 
 DETECCIÓN DE DN (opcional):
 - Número telefónico de 10 dígitos.
