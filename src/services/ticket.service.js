@@ -262,9 +262,9 @@ export const createTicket = async (from, cliente, chip, monto, respApi, messageI
   console.log(fechaPanza);
   try {
     const [result] = await pool.query(
-      `INSERT INTO chatBotRedi.tbl_tickets_recarga 
-      (numero, iccid, monto, nombre_compania, id_estado, folio, id_chip_red, msg_id, reliability, match_by, id_cliente, fecha_panza)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+      `INSERT INTO chatBotRedi.tbl_tickets_recarga
+      (numero, iccid, monto, nombre_compania, id_estado, folio, id_chip_red, msg_id, reliability, match_by, id_cliente, fecha_panza, producto, mayorista)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
       [
         chip.dn,
         chip.icc,
@@ -277,7 +277,9 @@ export const createTicket = async (from, cliente, chip, monto, respApi, messageI
         respApi.reliability || null,
         respApi.by || null,
         cliente.id_cliente,
-        fechaPanza
+        fechaPanza,
+        chip.producto || null,
+        chip.responsable || null
       ]
     );
 
@@ -323,6 +325,8 @@ export const createTicket = async (from, cliente, chip, monto, respApi, messageI
       PrioridadCliente: cliente.prioridad_cliente,
       Distribuidor: cliente.nombre_distribuidor,
       Estado: "PENDIENTE",
+      Producto: chip.producto || null,
+      Mayorista: chip.responsable || null,
     });
 
     iniciarTimerFolio(ticketId, 2);

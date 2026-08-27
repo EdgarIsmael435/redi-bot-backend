@@ -47,6 +47,8 @@ export const initSocket = (server) => {
           tk.folio AS Folio,
           tk.folio_auto AS FolioAuto,
           tk.fecha_registro AS FechaSolicitud,
+          tk.producto AS Producto,
+          tk.mayorista AS Mayorista,
           dir.nombre_cliente AS Cliente,
           dir.nombre_distribuidor AS Distribuidor,
           pr.descripcion AS PrioridadCliente
@@ -82,6 +84,8 @@ export const initSocket = (server) => {
               tk.fecha_panza AS FechaPanza,
               tk.folio AS Folio,
               tk.fecha_registro AS FechaSolicitud,
+              tk.producto AS Producto,
+              tk.mayorista AS Mayorista,
               dir.nombre_cliente AS Cliente,
               dir.nombre_distribuidor AS Distribuidor,
               pr.descripcion AS PrioridadCliente
@@ -123,6 +127,8 @@ export const initSocket = (server) => {
               tk.fecha_panza AS FechaPanza,
               tk.folio AS Folio,
               tk.fecha_registro AS FechaSolicitud,
+              tk.producto AS Producto,
+              tk.mayorista AS Mayorista,
               dir.nombre_cliente AS Cliente,
               dir.nombre_distribuidor AS Distribuidor,
               pr.descripcion AS PrioridadCliente
