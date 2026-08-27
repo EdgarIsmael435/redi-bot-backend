@@ -21,6 +21,8 @@ export const iniciarTimerFolio = (ticketId) => {
             tk.fecha_panza           AS FechaPanza,
             tk.folio                 AS Folio,
             tk.fecha_registro        AS FechaSolicitud,
+            tk.producto              AS Producto,
+            tk.mayorista             AS Mayorista,
             dir.nombre_cliente       AS Cliente,
             dir.nombre_distribuidor  AS Distribuidor,
             pr.descripcion           AS PrioridadCliente,
