@@ -75,12 +75,13 @@ export const iniciarTimerFolio = (ticketId) => {
 
         await sendWhatsAppMessage(
           ticket.NumeroWhatsApp,
-          `✅ *¡Listo! He recargado tu sim, te comparto los detalles:*\n\n` +
+          `✅ *¡Listo! He procesado tu sim, te comparto los detalles:*\n\n` +
           `👤 Cliente: ${ticket.Cliente}\n` +
           `🏪 Sucursal: ${ticket.Distribuidor}\n` +
           `💰 Monto: $${ticket.Monto}\n` +
           `📄 Folio: *${folioAuto}*\n\n` +
           messagePersonalizate +
+          `⚠️ Tu recarga se verá reflejada una vez que el SIM sea registrado\n\n`+
           `Gracias por seguir recargando con REDi 🤖🚀`,
           ticket.id_mensaje
         );
@@ -176,11 +177,12 @@ export const asignarFolio = async (ticketId, folio, estado, id_usuario_redi, esF
 
       await sendWhatsAppMessage(
         ticket.numero_whatsapp,
-        `✅ *¡Listo! He recargado tu sim, te comparto los detalles:*\n\n` +
+        `✅ *¡Listo! He procesado tu sim, te comparto los detalles:*\n\n` +
         `👤 Cliente: ${ticket.nombre_cliente}\n` +
         `💰 Monto: $${ticket.monto}\n` +
         `📄 Folio: *${ticket.folio}*\n\n` +
-        messagePersonalizate +
+        messagePersonalizate +        
+        `⚠️ Tu recarga se verá reflejada una vez que el SIM sea registrado\n\n`+
         `Gracias por seguir recargando con REDi 🤖🚀`,
         ticket.msg_id
       );
@@ -197,9 +199,9 @@ export const asignarFolio = async (ticketId, folio, estado, id_usuario_redi, esF
   }
 };
 
-// Rechazar ticket
-export const rechazarTicket = async (ticketId, id_usuario_redi) => {
-  console.log("Rechazar ticket");
+// Enviar recordatorio de registro de línea (no cambia el estado del ticket)
+export const enviarRecordatorio = async (ticketId) => {
+  console.log("Enviar recordatorio");
   try {
     const [rows] = await pool.query(
       `SELECT
@@ -219,39 +221,27 @@ export const rechazarTicket = async (ticketId, id_usuario_redi) => {
 
     const ticket = rows[0];
 
-    const [result] = await pool.query(
-      `UPDATE chatBotRedi.tbl_tickets_recarga
-        SET
-          id_estado = 5,
-          id_usuario_redi = ?
-        WHERE id_ticket_recarga = ?;`,
-      [id_usuario_redi, ticketId]
-    );
-
-    if (result.affectedRows === 0) {
-      throw new Error(`Ticket ${ticketId} no encontrado`);
-    }
-
     //Solo notificar si la solicitud del sim no supera las 24h (ventana de conversación gratuita de WhatsApp, pasado ese tiempo se cobra)
     const horasTranscurridas = (Date.now() - new Date(ticket.fecha_registro).getTime()) / (1000 * 60 * 60);
 
-    if (horasTranscurridas <= 24) {
-      await sendWhatsAppMessage(
-        ticket.numero_whatsapp,
-        `❌ *No pudimos activar tu chip*\n\n` +
-        `👤 Cliente: ${ticket.nombre_cliente}\n` +
-        `📱 Número: ${ticket.numero}\n\n` +
-        `El chip no se pudo activar porque no se ha realizado el registro de la línea.`,
-        ticket.msg_id
-      );
-      console.log(`Notificación de rechazo enviada a ${ticket.numero_whatsapp}`);
-    } else {
-      console.log(`Ticket ${ticketId} rechazado sin notificar: han pasado más de 24h desde la solicitud`);
+    if (horasTranscurridas > 24) {
+      console.log(`Ticket ${ticketId}: no se envía recordatorio, han pasado más de 24h desde la solicitud`);
+      return false;
     }
+
+    await sendWhatsAppMessage(
+      ticket.numero_whatsapp,
+      `⏰ *Recordatorio*\n\n` +
+      `👤 Cliente: ${ticket.nombre_cliente}\n` +
+      `📱 Número: ${ticket.numero}\n\n` +
+      `Tu chip no se ha podido activar porque aún no se ha realizado el registro de la línea.`,
+      ticket.msg_id
+    );
+    console.log(`Recordatorio enviado a ${ticket.numero_whatsapp}`);
 
     return true;
   } catch (err) {
-    console.error("Error rechazando ticket:", err.message);
+    console.error("Error enviando recordatorio:", err.message);
     return false;
   }
 };
