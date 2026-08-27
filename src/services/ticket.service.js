@@ -234,7 +234,7 @@ export const enviarRecordatorio = async (ticketId) => {
       `⏰ *Recordatorio*\n\n` +
       `👤 Cliente: ${ticket.nombre_cliente}\n` +
       `📱 Número: ${ticket.numero}\n\n` +
-      `Tu chip no se ha podido activar porque aún no se ha realizado el registro de la línea.`,
+      `Tus beneficios no se han podido activar porque aún no se ha realizado el registro de la línea.`,
       ticket.msg_id
     );
     console.log(`Recordatorio enviado a ${ticket.numero_whatsapp}`);
