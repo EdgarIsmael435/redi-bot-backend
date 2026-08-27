@@ -1,23 +1,17 @@
 import fs from "fs";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import path from "path";
+import {
+  ai,
+  GEMINI_MODEL,
+  GEMINI_BACKEND,
+  MIME_BY_EXT,
+  GeminiCallError,
+} from "./genai.client.js";
+import { log } from "console";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const visionModel = genAI.getGenerativeModel({
-  model: "gemini-2.5-flash"
-});
+const NOT_FOUND = "No encontrado";
 
-const imageToGeminiFormat = (imagePath) => {
-  const imageBuffer = fs.readFileSync(imagePath);
-  return {
-    inlineData: {
-      data: imageBuffer.toString("base64"),
-      mimeType: "image/jpeg"
-    }
-  };
-};
-
-export const extractMayoristaChipsWithGemini = async (imagePath) => {
-  const prompt = `
+const prompt = `
 Eres un sistema experto en análisis de tarjetas SIM mexicanas para inventario mayorista.
 
 OBJETIVO:
@@ -66,23 +60,101 @@ IMPORTANTE:
 - No incluyas texto fuera del JSON.
 `;
 
-  const imageData = imageToGeminiFormat(imagePath);
-  const result = await visionModel.generateContent([prompt, imageData]);
-  const response = await result.response;
-  const text = response.text();
+const toGeminiImage = (imagePath) => {
+  const ext = path.extname(imagePath).toLowerCase();
+  return {
+    inlineData: {
+      mimeType: MIME_BY_EXT[ext] ?? "image/jpeg",
+      data: fs.readFileSync(imagePath).toString("base64"),
+    },
+  };
+};
 
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  console.log(jsonMatch[0]);
-  
-  if (!jsonMatch) {
-    throw new Error("Gemini no devolvió JSON válido para mayorista");
+// El ICCID lleva digito verificador Luhn. Validarlo descarta lecturas con
+// digitos mal reconocidos sin comparar contra nada externo, que es el modo
+// de fallo tipico de OCR sobre impresion pequena. Mas fiable que el campo
+// confianza_icc autoreportado por el modelo.
+const isValidIccid = (raw) => {
+  if (typeof raw !== "string") return false;
+
+  const clean = raw.replace(/[\s-]/g, "").toUpperCase().replace(/F$/, "");
+  if (!/^89\d{16,18}$/.test(clean)) return false;
+
+  let sum = 0;
+  let double = clean.length % 2 === 0;
+
+  for (const char of clean) {
+    let digit = Number(char);
+    if (double) {
+      digit *= 2;
+      if (digit > 9) digit -= 9;
+    }
+    sum += digit;
+    double = !double;
   }
-  
-  const parsed = JSON.parse(jsonMatch[0]);
 
-  if (!Array.isArray(parsed.chips)) {
+  return sum % 10 === 0;
+};
+
+const normalizeChip = (chip) => {
+  const rawIccid = typeof chip?.iccid === "string" ? chip.iccid : "";
+  const clean = rawIccid.replace(/[\s-]/g, "").toUpperCase();
+  const valido = isValidIccid(rawIccid);
+
+  return {
+    iccid: valido ? clean : NOT_FOUND,
+    iccidRaw: clean || null,
+    iccidValido: valido,
+    dn: /^\d{10}$/.test(chip?.dn ?? "") ? chip.dn : NOT_FOUND,
+    confianzaIcc: Number(chip?.confianza_icc) || 0,
+    confianzaDn: Number(chip?.confianza_dn) || 0,
+  };
+};
+
+export const extractMayoristaChipsWithGemini = async (imagePath) => {
+  let text;
+
+  try {
+    const result = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: [{ text: prompt }, toGeminiImage(imagePath)],
+      config: {
+        thinkingConfig: { thinkingLevel: "high" },
+        responseMimeType: "application/json",
+      },
+    });
+
+    text = result.text;
+    console.log(text);
+  } catch (err) {
+    console.error("Error al llamar a Gemini (mayorista)", {
+      backend: GEMINI_BACKEND,
+      model: GEMINI_MODEL,
+      status: err?.status,
+      message: err?.message,
+    });
+    throw new GeminiCallError("Fallo la llamada a Gemini para chips mayoristas", err);
+  }
+
+  let parsed;
+  try {
+    const match = text?.match(/\{[\s\S]*\}/);
+    parsed = JSON.parse(match ? match[0] : text);
+  } catch (err) {
+    console.error("Respuesta no parseable de Gemini (mayorista):", text);
+    throw new Error("Gemini devolvió un JSON malformado");
+  }
+
+  if (!Array.isArray(parsed?.chips)) {
     throw new Error("Formato inválido: chips no es arreglo");
   }
 
-  return parsed;
+  const chips = parsed.chips.map(normalizeChip);
+
+  // Se ignora total_detectados del modelo: si se contradice, gana el conteo real.
+  return {
+    chips,
+    totalDetectados: chips.length,
+    totalValidos: chips.filter((c) => c.iccidValido).length,
+  };
 };
