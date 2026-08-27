@@ -1,26 +1,26 @@
 import fs from "fs";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { fileURLToPath } from "url";
-import { dirname } from "path";
+import path from "path";
+import {
+  ai,
+  GEMINI_MODEL,
+  GEMINI_BACKEND,
+  MIME_BY_EXT,
+  GeminiCallError,
+} from "./genai.client.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const visionModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
-const imageToGeminiFormat = (imagePath) => {
-    const imageBuffer = fs.readFileSync(imagePath);
-    return {
-        inlineData: {
-            data: imageBuffer.toString("base64"),
-            mimeType: "image/jpeg",
-        },
-    };
+// WhatsApp no siempre entrega jpeg. Declarar mal el mimeType degrada la
+// lectura sin lanzar error, que es el peor modo de fallo en un extractor.
+const toGeminiImage = (imagePath) => {
+  const ext = path.extname(imagePath).toLowerCase();
+  return {
+    inlineData: {
+      mimeType: MIME_BY_EXT[ext] ?? "image/jpeg",
+      data: fs.readFileSync(imagePath).toString("base64"),
+    },
+  };
 };
 
-export const extractDataWithGemini = async (imagePath) => {
-    const prompt = `Eres un experto en análisis de chips SIM mexicanos. 
+const prompt = `Eres un experto en análisis de chips SIM mexicanos. 
   Analiza esta imagen paso a paso: 
   PASO 0: CORRECCIÓN VISUAL
   - Si la imagen está invertida horizontal o verticalmente, o el texto está al revés, corrígelo mentalmente antes de leer.
@@ -63,17 +63,66 @@ export const extractDataWithGemini = async (imagePath) => {
     No incluyas literalmente frases como 'Oops, te equivocaste, pero no pasa nada 😅', Si la imagen si corresponde, deja una breve descripción"
    } 
    IMPORTANTE: Si no encuentras algún dato con certeza, pon "No encontrado". 
-   Y tu confianza la vas a basar dependiendo la cantidad de datos encontrados NO inventes datos. Responde SOLO el JSON.`;
+   Y tu confianza la vas a basar dependiendo la cantidad de datos encontrados NO inventes datos.
+   Responde SOLO con UN objeto JSON, nunca con un arreglo. Si la imagen contiene
+   varios chips, analiza únicamente el más grande o centrado y menciona en
+   "detalles_encontrados" que se detectaron varios y que envíe una foto de uno solo.`;
 
-    const imageData = imageToGeminiFormat(imagePath);
-    const result = await visionModel.generateContent([prompt, imageData]);
-    const response = await result.response;
-    const text = response.text();
+export const extractDataWithGemini = async (imagePath) => {
+  let text;
 
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    console.log(jsonMatch[0]);
-    
-    if (!jsonMatch) throw new Error("Gemini no devolvió JSON válido");
+  try {
+    const result = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: [{ text: prompt }, toGeminiImage(imagePath)],
+      config: {
+        thinkingConfig: { thinkingLevel: "high" },
+        responseMimeType: "application/json",
+      },
+    });
 
-    return JSON.parse(jsonMatch[0]);
+    text = result.text;
+  } catch (err) {
+    // Conservar status y mensaje original: perder esos campos fue lo que
+    // hizo opaco el diagnostico del FAILED_PRECONDITION en produccion.
+    console.error("Error al llamar a Gemini", {
+      backend: GEMINI_BACKEND,
+      model: GEMINI_MODEL,
+      status: err?.status,
+      message: err?.message,
+    });
+    throw new GeminiCallError("Fallo la llamada a Gemini para extracción de datos", err);
+  }
+
+  // responseMimeType ya garantiza JSON, el regex solo cubre preambulos.
+  // Se parsea el texto completo primero: recortar entre la primera y la
+  // ultima llave rompe cuando el modelo devuelve un arreglo de chips.
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    const match = text?.match(/(\[[\s\S]*\]|\{[\s\S]*\})/);
+    if (!match) {
+      console.error("Respuesta cruda de Gemini sin JSON detectable:", text);
+      throw new Error("Gemini no devolvió JSON válido");
+    }
+    try {
+      parsed = JSON.parse(match[0]);
+    } catch (err) {
+      console.error("JSON malformado recibido:", match[0]);
+      throw new Error("Gemini devolvió un JSON malformado");
+    }
+  }
+
+  // Red de seguridad: si el modelo ignora la instruccion y devuelve arreglo,
+  // se toma el primer chip en lugar de tirar el mensaje del usuario.
+  if (Array.isArray(parsed)) {
+    if (parsed.length === 0) {
+      throw new Error("Gemini no detectó ningún chip");
+    }
+    console.warn("Gemini devolvió arreglo, se usa el primer elemento");
+    return parsed[0];
+  }
+
+  return parsed;
 };

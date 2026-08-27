@@ -197,6 +197,65 @@ export const asignarFolio = async (ticketId, folio, estado, id_usuario_redi, esF
   }
 };
 
+// Rechazar ticket
+export const rechazarTicket = async (ticketId, id_usuario_redi) => {
+  console.log("Rechazar ticket");
+  try {
+    const [rows] = await pool.query(
+      `SELECT
+          c.numero_whatsapp,
+          c.nombre_cliente,
+          t.numero,
+          t.msg_id,
+          t.fecha_registro
+        FROM chatBotRedi.tbl_tickets_recarga t
+        JOIN chatBotRedi.tbl_directorio_clientes c
+          ON t.id_cliente = c.id_cliente
+        WHERE t.id_ticket_recarga = ?;`,
+      [ticketId]
+    );
+
+    if (!rows.length) throw new Error(`Ticket ${ticketId} no encontrado`);
+
+    const ticket = rows[0];
+
+    const [result] = await pool.query(
+      `UPDATE chatBotRedi.tbl_tickets_recarga
+        SET
+          id_estado = 5,
+          id_usuario_redi = ?
+        WHERE id_ticket_recarga = ?;`,
+      [id_usuario_redi, ticketId]
+    );
+
+    if (result.affectedRows === 0) {
+      throw new Error(`Ticket ${ticketId} no encontrado`);
+    }
+
+    //Solo notificar si la solicitud del sim no supera las 24h (ventana de conversación gratuita de WhatsApp, pasado ese tiempo se cobra)
+    const horasTranscurridas = (Date.now() - new Date(ticket.fecha_registro).getTime()) / (1000 * 60 * 60);
+
+    if (horasTranscurridas <= 24) {
+      await sendWhatsAppMessage(
+        ticket.numero_whatsapp,
+        `❌ *No pudimos activar tu chip*\n\n` +
+        `👤 Cliente: ${ticket.nombre_cliente}\n` +
+        `📱 Número: ${ticket.numero}\n\n` +
+        `El chip no se pudo activar porque no se ha realizado el registro de la línea.`,
+        ticket.msg_id
+      );
+      console.log(`Notificación de rechazo enviada a ${ticket.numero_whatsapp}`);
+    } else {
+      console.log(`Ticket ${ticketId} rechazado sin notificar: han pasado más de 24h desde la solicitud`);
+    }
+
+    return true;
+  } catch (err) {
+    console.error("Error rechazando ticket:", err.message);
+    return false;
+  }
+};
+
 export const createTicket = async (from, cliente, chip, monto, respApi, messageId) => {
   console.log("Crear ticket");
   const fechaPanza = respApi?.data?.fecha_panza ?? respApi?.fecha_panza ?? null;

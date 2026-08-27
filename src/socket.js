@@ -1,7 +1,7 @@
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import pool from "./config/db.js";
-import { asignarFolio } from "./services/ticket.service.js";
+import { asignarFolio, rechazarTicket } from "./services/ticket.service.js";
 
 let io;
 
@@ -102,6 +102,47 @@ export const initSocket = (server) => {
         }
       } catch (err) {
         console.error("Error en process-recharge:", err.message);
+      }
+    });
+
+    socket.on("reject-recharge", async (data) => {
+      try {
+        const { ticketId, id_usuario_redi } = data;
+        console.log(`Operador ${socket.user?.id} rechazó:`, data);
+
+        const ok = await rechazarTicket(ticketId, id_usuario_redi);
+
+        if (ok) {
+          const [updated] = await pool.query(
+            `SELECT
+              tk.id_ticket_recarga AS id_ticketRecarga,
+              es.descripcion AS Estado,
+              tk.nombre_compania AS Compania,
+              tk.monto AS Monto,
+              tk.numero AS Numero,
+              tk.fecha_panza AS FechaPanza,
+              tk.folio AS Folio,
+              tk.fecha_registro AS FechaSolicitud,
+              dir.nombre_cliente AS Cliente,
+              dir.nombre_distribuidor AS Distribuidor,
+              pr.descripcion AS PrioridadCliente
+            FROM chatBotRedi.tbl_tickets_recarga tk
+            INNER JOIN chatBotRedi.cat_estados_recarga es
+                ON tk.id_estado = es.id_estado
+            INNER JOIN chatBotRedi.tbl_directorio_clientes dir
+                ON tk.id_cliente = dir.id_cliente
+            INNER JOIN chatBotRedi.cat_prioridad_cliente pr
+                ON dir.id_prioridad_cliente = pr.id_prioridad_cliente
+            WHERE tk.id_ticket_recarga = ?;`,
+            [ticketId]
+          );
+
+          if (updated.length > 0) {
+            io.emit("recharge-updated", updated[0]);
+          }
+        }
+      } catch (err) {
+        console.error("Error en reject-recharge:", err.message);
       }
     });
 
