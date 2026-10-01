@@ -1,7 +1,8 @@
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import pool from "./config/db.js";
-import { asignarFolio, rechazarTicket } from "./services/ticket.service.js";
+import { asignarFolio, enviarRecordatorio } from "./services/ticket.service.js";
+import { verificarEnrolamientoTicket, verificarEnrolamientoPendientes } from "./services/enrolamiento.service.js";
 
 let io;
 
@@ -47,6 +48,9 @@ export const initSocket = (server) => {
           tk.folio AS Folio,
           tk.folio_auto AS FolioAuto,
           tk.fecha_registro AS FechaSolicitud,
+          tk.producto AS Producto,
+          tk.mayorista AS Mayorista,
+          tk.enrolado AS Enrolado,
           dir.nombre_cliente AS Cliente,
           dir.nombre_distribuidor AS Distribuidor,
           pr.descripcion AS PrioridadCliente
@@ -82,6 +86,9 @@ export const initSocket = (server) => {
               tk.fecha_panza AS FechaPanza,
               tk.folio AS Folio,
               tk.fecha_registro AS FechaSolicitud,
+              tk.producto AS Producto,
+              tk.mayorista AS Mayorista,
+              tk.enrolado AS Enrolado,
               dir.nombre_cliente AS Cliente,
               dir.nombre_distribuidor AS Distribuidor,
               pr.descripcion AS PrioridadCliente
@@ -105,44 +112,44 @@ export const initSocket = (server) => {
       }
     });
 
-    socket.on("reject-recharge", async (data) => {
+    socket.on("remind-recharge", async (data, callback) => {
       try {
-        const { ticketId, id_usuario_redi } = data;
-        console.log(`Operador ${socket.user?.id} rechazó:`, data);
+        const { ticketId } = data;
+        console.log(`Operador ${socket.user?.id} envió recordatorio:`, data);
 
-        const ok = await rechazarTicket(ticketId, id_usuario_redi);
-
-        if (ok) {
-          const [updated] = await pool.query(
-            `SELECT
-              tk.id_ticket_recarga AS id_ticketRecarga,
-              es.descripcion AS Estado,
-              tk.nombre_compania AS Compania,
-              tk.monto AS Monto,
-              tk.numero AS Numero,
-              tk.fecha_panza AS FechaPanza,
-              tk.folio AS Folio,
-              tk.fecha_registro AS FechaSolicitud,
-              dir.nombre_cliente AS Cliente,
-              dir.nombre_distribuidor AS Distribuidor,
-              pr.descripcion AS PrioridadCliente
-            FROM chatBotRedi.tbl_tickets_recarga tk
-            INNER JOIN chatBotRedi.cat_estados_recarga es
-                ON tk.id_estado = es.id_estado
-            INNER JOIN chatBotRedi.tbl_directorio_clientes dir
-                ON tk.id_cliente = dir.id_cliente
-            INNER JOIN chatBotRedi.cat_prioridad_cliente pr
-                ON dir.id_prioridad_cliente = pr.id_prioridad_cliente
-            WHERE tk.id_ticket_recarga = ?;`,
-            [ticketId]
-          );
-
-          if (updated.length > 0) {
-            io.emit("recharge-updated", updated[0]);
-          }
-        }
+        const sent = await enviarRecordatorio(ticketId);
+        // No cambia el estado del ticket, así que no hace falta emitir recharge-updated
+        if (typeof callback === "function") callback({ sent });
       } catch (err) {
-        console.error("Error en reject-recharge:", err.message);
+        console.error("Error en remind-recharge:", err.message);
+        if (typeof callback === "function") callback({ sent: false, error: err.message });
+      }
+    });
+
+    socket.on("check-enrolamiento", async (data, callback) => {
+      try {
+        const { ticketId } = data;
+        console.log(`Operador ${socket.user?.id} consultó enrolamiento:`, data);
+
+        // verificarEnrolamientoTicket ya emite recharge-enrolamiento a todos
+        const enrolado = await verificarEnrolamientoTicket(ticketId);
+        if (typeof callback === "function") callback({ enrolado });
+      } catch (err) {
+        console.error("Error en check-enrolamiento:", err.message);
+        if (typeof callback === "function") callback({ enrolado: null, error: err.message });
+      }
+    });
+
+    socket.on("check-enrolamiento-pendientes", async (callback) => {
+      try {
+        console.log(`Operador ${socket.user?.id} inició barrido de enrolamiento`);
+
+        // Cada ticket se emite por recharge-enrolamiento conforme se consulta
+        const resumen = await verificarEnrolamientoPendientes();
+        if (typeof callback === "function") callback(resumen);
+      } catch (err) {
+        console.error("Error en check-enrolamiento-pendientes:", err.message);
+        if (typeof callback === "function") callback({ error: err.message });
       }
     });
 

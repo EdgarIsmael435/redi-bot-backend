@@ -1,8 +1,10 @@
 import { Router } from "express";
-import { getTickets} from "../controllers/tickets.controller.js";
+import { getTickets, getReporteTickets } from "../controllers/tickets.controller.js";
+import { verifyAndRefreshToken } from "../middleware/auth.js";
 
 const router = Router();
 
-router.get("/", getTickets);
+router.get("/", verifyAndRefreshToken, getTickets);
+router.get("/reporte", verifyAndRefreshToken, getReporteTickets);
 
 export default router;

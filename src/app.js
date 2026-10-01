@@ -4,6 +4,7 @@ import authRoutes from "./routes/auth.routes.js";
 import webhookRoutes from "./routes/webhook.routes.js";
 import usersRoutes from "./routes/users.routes.js";
 import clientsRoutes from "./routes/clientsAdmins.routes.js";
+import ticketsRoutes from "./routes/tickets.routes.js";
 
 const app = express();
 
@@ -18,6 +19,7 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/usuarios", usersRoutes);
 app.use("/api/clients", clientsRoutes);
+app.use("/api/tickets", ticketsRoutes);
 
 app.use("/webhook", webhookRoutes);
 
