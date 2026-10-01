@@ -2,6 +2,7 @@ import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import pool from "./config/db.js";
 import { asignarFolio, enviarRecordatorio } from "./services/ticket.service.js";
+import { verificarEnrolamientoTicket, verificarEnrolamientoPendientes } from "./services/enrolamiento.service.js";
 
 let io;
 
@@ -49,6 +50,7 @@ export const initSocket = (server) => {
           tk.fecha_registro AS FechaSolicitud,
           tk.producto AS Producto,
           tk.mayorista AS Mayorista,
+          tk.enrolado AS Enrolado,
           dir.nombre_cliente AS Cliente,
           dir.nombre_distribuidor AS Distribuidor,
           pr.descripcion AS PrioridadCliente
@@ -86,6 +88,7 @@ export const initSocket = (server) => {
               tk.fecha_registro AS FechaSolicitud,
               tk.producto AS Producto,
               tk.mayorista AS Mayorista,
+              tk.enrolado AS Enrolado,
               dir.nombre_cliente AS Cliente,
               dir.nombre_distribuidor AS Distribuidor,
               pr.descripcion AS PrioridadCliente
@@ -120,6 +123,33 @@ export const initSocket = (server) => {
       } catch (err) {
         console.error("Error en remind-recharge:", err.message);
         if (typeof callback === "function") callback({ sent: false, error: err.message });
+      }
+    });
+
+    socket.on("check-enrolamiento", async (data, callback) => {
+      try {
+        const { ticketId } = data;
+        console.log(`Operador ${socket.user?.id} consultó enrolamiento:`, data);
+
+        // verificarEnrolamientoTicket ya emite recharge-enrolamiento a todos
+        const enrolado = await verificarEnrolamientoTicket(ticketId);
+        if (typeof callback === "function") callback({ enrolado });
+      } catch (err) {
+        console.error("Error en check-enrolamiento:", err.message);
+        if (typeof callback === "function") callback({ enrolado: null, error: err.message });
+      }
+    });
+
+    socket.on("check-enrolamiento-pendientes", async (callback) => {
+      try {
+        console.log(`Operador ${socket.user?.id} inició barrido de enrolamiento`);
+
+        // Cada ticket se emite por recharge-enrolamiento conforme se consulta
+        const resumen = await verificarEnrolamientoPendientes();
+        if (typeof callback === "function") callback(resumen);
+      } catch (err) {
+        console.error("Error en check-enrolamiento-pendientes:", err.message);
+        if (typeof callback === "function") callback({ error: err.message });
       }
     });
 

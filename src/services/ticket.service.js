@@ -3,6 +3,7 @@ import { sendWhatsAppMessage, sendStickerMessage } from "./whatsapp.service.js";
 import { getIO } from "../socket.js";
 import { updateChipRecharge, releaseChip } from "./chip.service.js";
 import { STICKERS } from "../constants/stickers.js";
+import { esMovistar, verificarEnrolamientoTicket } from "./enrolamiento.service.js";
 
 // Asignamos Folio Falso
 export const iniciarTimerFolio = (ticketId) => {
@@ -23,6 +24,7 @@ export const iniciarTimerFolio = (ticketId) => {
             tk.fecha_registro        AS FechaSolicitud,
             tk.producto              AS Producto,
             tk.mayorista             AS Mayorista,
+            tk.enrolado              AS Enrolado,
             dir.nombre_cliente       AS Cliente,
             dir.nombre_distribuidor  AS Distribuidor,
             pr.descripcion           AS PrioridadCliente,
@@ -319,7 +321,15 @@ export const createTicket = async (from, cliente, chip, monto, respApi, messageI
       Estado: "PENDIENTE",
       Producto: chip.producto || null,
       Mayorista: chip.responsable || null,
+      Enrolado: null,
     });
+
+    // Movistar: consultar enrolamiento en segundo plano (no retrasa al cliente)
+    if (esMovistar(chip.compania)) {
+      verificarEnrolamientoTicket(ticketId).catch((err) =>
+        console.error("Error verificando enrolamiento:", err.message)
+      );
+    }
 
     iniciarTimerFolio(ticketId, 2);
     return ticketId;
