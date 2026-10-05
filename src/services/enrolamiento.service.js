@@ -7,7 +7,7 @@ const ENROLAMIENTO_API_KEY = process.env.ENROLAMIENTO_API_KEY;
 
 /*ENROLAMIENTO (solo Movistar)*/
 
-export const esMovistar = (compania) => compania?.toUpperCase() === "MOVISTAR";
+export const esMovistar = (compania) => compania?.trim().toUpperCase() === "MOVISTAR";
 
 /**
  * Consulta si la línea está enrolada (vinculada)
@@ -87,10 +87,15 @@ export const verificarEnrolamientoPendientes = async () => {
 
   try {
     const [rows] = await pool.query(
-      `SELECT id_ticket_recarga
-        FROM chatBotRedi.tbl_tickets_recarga
-        WHERE id_estado = 1
-          AND UPPER(nombre_compania) = 'MOVISTAR';`
+      `SELECT tk.id_ticket_recarga
+        FROM chatBotRedi.tbl_tickets_recarga tk
+        -- Mismos joins que el panel, para que el conteo coincida con lo que se ve
+        INNER JOIN chatBotRedi.tbl_directorio_clientes dir
+          ON tk.id_cliente = dir.id_cliente
+        INNER JOIN chatBotRedi.cat_prioridad_cliente pr
+          ON dir.id_prioridad_cliente = pr.id_prioridad_cliente
+        WHERE tk.id_estado = 1
+          AND UPPER(TRIM(tk.nombre_compania)) = 'MOVISTAR';`
     );
 
     const resumen = { total: rows.length, vinculadas: 0, noVinculadas: 0, sinVerificar: 0 };
