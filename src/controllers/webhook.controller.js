@@ -19,7 +19,18 @@ export const verifyWebhook = (req, res) => {
 export const receiveWebhook = async (req, res) => {
   try {
     const body = req.body;
-    const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+    const value = body.entry?.[0]?.changes?.[0]?.value;
+    const message = value?.messages?.[0];
+
+    // Meta acepta el envío (200) pero avisa aquí si la entrega falló después
+    const failed = value?.statuses?.filter((s) => s.status === "failed") ?? [];
+    failed.forEach((s) => {
+      console.error("Entrega fallida WhatsApp:", {
+        to: s.recipient_id,
+        messageId: s.id,
+        errors: s.errors,
+      });
+    });
 
     if (!message) return res.sendStatus(200);
 
