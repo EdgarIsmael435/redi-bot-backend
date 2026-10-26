@@ -82,6 +82,30 @@ export const sendWhatsAppMessage = async (to, message, replyToMessageId = null) 
   }
 };
 
+// Marca el mensaje como leído y muestra "escribiendo…" (no es un mensaje, Meta no lo cobra).
+// Se quita solo al responder o a los 25s. Si falla no interrumpe el flujo.
+export const sendTypingIndicator = async (messageId) => {
+  try {
+    await axios.post(
+      `${WHATSAPP_API_URL}/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
+      {
+        messaging_product: "whatsapp",
+        status: "read",
+        message_id: messageId,
+        typing_indicator: { type: "text" },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+  } catch (error) {
+    console.error("Error enviando indicador de escritura:", error.response?.data || error.message);
+  }
+};
+
 export const downloadMediaFile = async (mediaId, outputPath) => {
   const urlResp = await axios.get(`https://graph.facebook.com/v24.0/${mediaId}`, {
     headers: { Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}` },

@@ -1,7 +1,7 @@
 import { clearSession, saveSession } from "../utils/helpers.js";
 import { isAmountAllowed } from "./client.service.js";
 import { createTicket } from "./ticket.service.js";
-import { sendWhatsAppMessage, sendQuickReplies, downloadMediaFile, sendStickerMessage } from "./whatsapp.service.js";
+import { sendWhatsAppMessage, sendQuickReplies, downloadMediaFile, sendStickerMessage, sendTypingIndicator } from "./whatsapp.service.js";
 import { extractDataWithGemini } from "./gemini.service.js";
 import { getChipData, releaseChip } from "./chip.service.js";
 import redis from "../config/redis.js";
@@ -359,7 +359,8 @@ export const handleImageMessage = async (from, message, cliente) => {
         const sessionData = { estado: "procesando_imagen" };
         await saveSession(from, sessionData);
 
-        await sendWhatsAppMessage(from, `Gracias, ${cliente.nombre_cliente} 😁\nHe recibido tu solicitud, voy a procesar tu imagen, dame un momento...`, message.id);
+        // "escribiendo…" en lugar de un mensaje de espera (no se cobra)
+        await sendTypingIndicator(message.id);
 
         await downloadMediaFile(mediaId, filePath);
         extracted = await extractDataWithGemini(filePath);
