@@ -595,11 +595,17 @@ export const handleImageMessage = async (from, message, cliente) => {
         const caption = message.image?.caption || "";
         const montoFromCaption = extractAmountFromText(caption);
 
-        if (montoFromCaption && isAmountAllowed(cliente, montoFromCaption)) {
+        // Si el cliente solo tiene un monto permitido no se le pregunta (ahorra un mensaje)
+        const montoUnico = cliente.montos_array?.length === 1 ? cliente.montos_array[0] : null;
+        const montoAuto = montoFromCaption && isAmountAllowed(cliente, montoFromCaption)
+            ? montoFromCaption
+            : montoUnico;
+
+        if (montoAuto) {
             const confirmData = {
                 estado: "confirmando_recarga",
                 chip,
-                monto: montoFromCaption,
+                monto: montoAuto,
                 session: buildSessionMeta(respApi), // puedes usar respApi como referencia de la validación
             };
 
@@ -609,7 +615,7 @@ export const handleImageMessage = async (from, message, cliente) => {
                 `📱 *DN:* ${chip.dn}\n` +
                 `💳 *ICCID:* ${chip.icc}\n` +
                 `🏢 *Compañía:* ${chip.compania || 'Desconocida'}\n` +
-                `💰 *Monto:* $${montoFromCaption}\n\n` +
+                `💰 *Monto:* $${montoAuto}\n\n` +
                 `¿Deseas continuar con la recarga?`;
 
             await sendQuickReplies(from, confirmText, generateConfirmationReplies(), message.id);
