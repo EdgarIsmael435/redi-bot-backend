@@ -1,7 +1,7 @@
 import { clearSession, saveSession } from "../utils/helpers.js";
 import { isAmountAllowed } from "./client.service.js";
 import { createTicket } from "./ticket.service.js";
-import { sendWhatsAppMessage, sendQuickReplies, downloadMediaFile, sendStickerMessage } from "./whatsapp.service.js";
+import { sendWhatsAppMessage, sendQuickReplies, downloadMediaFile, sendStickerMessage, sendTypingIndicator } from "./whatsapp.service.js";
 import { extractDataWithGemini } from "./gemini.service.js";
 import { getChipData, releaseChip } from "./chip.service.js";
 import redis from "../config/redis.js";
@@ -359,7 +359,8 @@ export const handleImageMessage = async (from, message, cliente) => {
         const sessionData = { estado: "procesando_imagen" };
         await saveSession(from, sessionData);
 
-        await sendWhatsAppMessage(from, `Gracias, ${cliente.nombre_cliente} 😁\nHe recibido tu solicitud, voy a procesar tu imagen, dame un momento...`, message.id);
+        // "escribiendo…" en lugar de un mensaje de espera (no se cobra)
+        await sendTypingIndicator(message.id);
 
         await downloadMediaFile(mediaId, filePath);
         extracted = await extractDataWithGemini(filePath);
@@ -594,11 +595,17 @@ export const handleImageMessage = async (from, message, cliente) => {
         const caption = message.image?.caption || "";
         const montoFromCaption = extractAmountFromText(caption);
 
-        if (montoFromCaption && isAmountAllowed(cliente, montoFromCaption)) {
+        // Si el cliente solo tiene un monto permitido no se le pregunta (ahorra un mensaje)
+        const montoUnico = cliente.montos_array?.length === 1 ? cliente.montos_array[0] : null;
+        const montoAuto = montoFromCaption && isAmountAllowed(cliente, montoFromCaption)
+            ? montoFromCaption
+            : montoUnico;
+
+        if (montoAuto) {
             const confirmData = {
                 estado: "confirmando_recarga",
                 chip,
-                monto: montoFromCaption,
+                monto: montoAuto,
                 session: buildSessionMeta(respApi), // puedes usar respApi como referencia de la validación
             };
 
@@ -608,7 +615,7 @@ export const handleImageMessage = async (from, message, cliente) => {
                 `📱 *DN:* ${chip.dn}\n` +
                 `💳 *ICCID:* ${chip.icc}\n` +
                 `🏢 *Compañía:* ${chip.compania || 'Desconocida'}\n` +
-                `💰 *Monto:* $${montoFromCaption}\n\n` +
+                `💰 *Monto:* $${montoAuto}\n\n` +
                 `¿Deseas continuar con la recarga?`;
 
             await sendQuickReplies(from, confirmText, generateConfirmationReplies(), message.id);

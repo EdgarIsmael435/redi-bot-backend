@@ -2,7 +2,6 @@ import { handleTextMessage, handleInteractiveMessage, handleImageMessage } from 
 import { handleMayoristaImage, handleMayoristaText, handleMayoristaInteractive } from "../services/mayoristaHandler.js"
 import { getClientData } from "../services/client.service.js";
 import { getMayoristaData } from "../services/mayorista.service.js";
-import { sendWhatsAppMessage } from "../services/whatsapp.service.js";
 
 export const verifyWebhook = (req, res) => {
   const mode = req.query["hub.mode"];
@@ -73,12 +72,8 @@ export const receiveWebhook = async (req, res) => {
       return res.sendStatus(200);
     }
 
-    // 3. No autorizado
-    await sendWhatsAppMessage(
-      from,
-      "*Acceso no autorizado*\n\nTu número no está registrado en el sistema.",
-      message.id
-    );
+    // 3. No autorizado: no se responde (cada mensaje de servicio se cobra)
+    console.log("Mensaje ignorado de número no registrado: " + from);
 
     return res.sendStatus(200);
 

@@ -5,7 +5,8 @@ import redis from "../config/redis.js";
 import {
     sendWhatsAppMessage,
     downloadMediaFile,
-    sendQuickReplies
+    sendQuickReplies,
+    sendTypingIndicator
 } from "./whatsapp.service.js";
 import {
     createImagenProcesada,
@@ -108,11 +109,8 @@ export const handleMayoristaImage = async (from, message, mayorista) => {
 
         await saveSession(`mayorista:${from}`, { estado: "procesando_imagen" });
 
-        await sendWhatsAppMessage(
-            from,
-            `📸 Imagen recibida, ${mayorista.nombre_mayorista}\nEstoy analizando los SIMs, dame un momento…`,
-            message.id
-        );
+        // "escribiendo…" en lugar de un mensaje de espera (no se cobra)
+        await sendTypingIndicator(message.id);
 
         await downloadMediaFile(mediaId, filePath);
         const hashImagen = generarHashImagen(filePath);
