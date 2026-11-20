@@ -2,6 +2,7 @@ import { handleTextMessage, handleInteractiveMessage, handleImageMessage } from 
 import { handleMayoristaImage, handleMayoristaText, handleMayoristaInteractive } from "../services/mayoristaHandler.js"
 import { getClientData } from "../services/client.service.js";
 import { getMayoristaData } from "../services/mayorista.service.js";
+import redis from "../config/redis.js";
 
 export const verifyWebhook = (req, res) => {
   const mode = req.query["hub.mode"];
@@ -15,7 +16,23 @@ export const verifyWebhook = (req, res) => {
   return res.sendStatus(403);
 };
 
+// Evita procesar dos veces el mismo mensaje (Meta reintenta la entrega del webhook)
+const esMensajeNuevo = async (messageId) => {
+  try {
+    const ok = await redis.set(`wamsg:${messageId}`, "1", "EX", 60 * 60 * 24, "NX");
+    return ok === "OK";
+  } catch (err) {
+    // Si Redis falla, mejor procesar que perder el mensaje
+    console.error("Error verificando mensaje duplicado:", err.message);
+    return true;
+  }
+};
+
 export const receiveWebhook = async (req, res) => {
+  // Responder a Meta de inmediato: si tarda (p. ej. Gemini), Meta reintenta
+  // y el mismo mensaje se procesa dos veces
+  res.sendStatus(200);
+
   try {
     const body = req.body;
     const value = body.entry?.[0]?.changes?.[0]?.value;
@@ -31,7 +48,12 @@ export const receiveWebhook = async (req, res) => {
       });
     });
 
-    if (!message) return res.sendStatus(200);
+    if (!message) return;
+
+    if (!(await esMensajeNuevo(message.id))) {
+      console.log("Mensaje duplicado ignorado: " + message.id);
+      return;
+    }
 
     console.log(message);
 
@@ -52,7 +74,7 @@ export const receiveWebhook = async (req, res) => {
       if (message.type === "image") {
         await handleImageMessage(from, message, cliente);
       }
-      return res.sendStatus(200);
+      return;
     }
 
     // 2. Intentar como mayorista
@@ -69,16 +91,13 @@ export const receiveWebhook = async (req, res) => {
       if (message.type === "image") {
         await handleMayoristaImage(from, message, mayorista);
       }
-      return res.sendStatus(200);
+      return;
     }
 
     // 3. No autorizado: no se responde (cada mensaje de servicio se cobra)
     console.log("Mensaje ignorado de número no registrado: " + from);
 
-    return res.sendStatus(200);
-
   } catch (err) {
     console.error("Error en webhook:", err.message);
-    res.sendStatus(500);
   }
 };
