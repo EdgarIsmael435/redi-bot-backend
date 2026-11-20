@@ -89,6 +89,13 @@ const generateSiNoReplies = () => {
 /* ======================================================
    IMAGEN
 ====================================================== */
+// Nombre del cliente sin "null" cuando no tiene apellido (u otro campo vacío)
+const nombreCompleto = (c) =>
+    [c?.nombre, c?.apellido]
+        .map((v) => String(v ?? "").trim())
+        .filter((v) => v && v.toLowerCase() !== "null")
+        .join(" ");
+
 export const handleMayoristaImage = async (from, message, mayorista) => {
     const mediaId = message.image.id;
     const now = Date.now();
@@ -341,7 +348,7 @@ export const handleMayoristaText = async (from, message, mayorista) => {
 
             await sendQuickReplies(
                 from,
-                `🧾 Confirmar asignación a *${c.nombre} ${c.apellido}*\n¿Deseas continuar?`,
+                `🧾 Confirmar asignación a *${nombreCompleto(c)}*\n¿Deseas continuar?`,
                 generateSiNoReplies(),
                 message.id
             );
@@ -351,7 +358,7 @@ export const handleMayoristaText = async (from, message, mayorista) => {
         // Múltiples clientes encontrados
         let msg = "Encontré varios clientes:\n\n";
         clientes.slice(0, 5).forEach((c, i) => {
-            msg += `${i + 1}. ${c.nombre} ${c.apellido}\n`;
+            msg += `${i + 1}. ${nombreCompleto(c)}\n`;
         });
         msg += "\nEscribe el número del cliente correcto.";
 
@@ -388,7 +395,7 @@ export const handleMayoristaText = async (from, message, mayorista) => {
 
         await sendQuickReplies(
             from,
-            `🧾 Confirmar asignación a *${c.nombre} ${c.apellido}*\n¿Deseas continuar?`,
+            `🧾 Confirmar asignación a *${nombreCompleto(c)}*\n¿Deseas continuar?`,
             generateSiNoReplies(),
             message.id
         );
